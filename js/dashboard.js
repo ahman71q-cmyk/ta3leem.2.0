@@ -1,5 +1,5 @@
 /* ==========================================================
-   Ta3leem — Dashboard
+   Ta3leem — Dashboard (Supabase)
    ========================================================== */
 
 async function initDashboard() {
@@ -8,36 +8,33 @@ async function initDashboard() {
 
   document.getElementById("studentName").textContent = user.full_name || user.email;
 
-  const enrollments = DB.getEnrollments(user.id);
-  const allCourses = JSON.parse(localStorage.getItem("ta3leem_admin_courses") || "null") || LOCAL_COURSES;
-  const quizzes = JSON.parse(localStorage.getItem("ta3leem_admin_quizzes") || "[]");
-  const attempts = getAttemptsByUser(user.id);
+  const enrollments = await getEnrollments(user.id);
+  const attempts = await getAttemptsByUser(user.id);
+  const quizzes = await getQuizzes();
 
   // ==========================================================
   // احسب تقدم كل دورة
   // ==========================================================
-  const enrichedEnrollments = enrollments.map((e) => {
-    const course = allCourses.find((c) => c.id === e.course_id);
-    if (!course) return null;
+  const enrichedEnrollments = [];
 
-    // احسب عدد دروس الدورة
-    const courseLessons = [];
-    (course.sections || []).forEach(s => {
-      (s.lessons || []).forEach(l => courseLessons.push(l));
-    });
+  for (const e of enrollments) {
+    const course = e.course;
+    if (!course) continue;
 
-    // أضف دروس الأدمن
-    const adminLessons = JSON.parse(localStorage.getItem("ta3leem_admin_lessons") || "[]")
-      .filter(l => l.course_id === course.id);
-    adminLessons.forEach(l => {
-      if (!courseLessons.find(x => x.id === l.id)) courseLessons.push(l);
-    });
+    // احسب الدروس
+    const courseData = await getCourseBySlug(course.slug);
+    let totalLessons = 0;
+    if (courseData?.sections) {
+      courseData.sections.forEach(s => {
+        totalLessons += s.lessons?.length || 0;
+      });
+    }
 
-    const totalLessons = courseLessons.length;
-    const completed = courseLessons.filter(l => isLessonComplete(user.id, course.id, l.id)).length;
+    const progress = await getLessonProgress(user.id, course.id);
+    const completed = progress.filter(p => p.completed).length;
     const progressPct = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
 
-    // هل نجح في اختبار الدورة؟
+    // الاختبار
     const courseQuiz = quizzes.find(q => q.course_id === course.id);
     let quizPassed = false;
     let quizAttempts = 0;
@@ -52,10 +49,9 @@ async function initDashboard() {
       quizPassed = bestScore >= (courseQuiz.pass_score || 60);
     }
 
-    // ✅ الشهادة تُصدر فقط لو: 100% تقدم + نجح في الاختبار
     const isFullyCompleted = (progressPct === 100) && (courseQuiz ? quizPassed : true);
 
-    return {
+    enrichedEnrollments.push({
       enrollment: e,
       course,
       totalLessons,
@@ -66,8 +62,8 @@ async function initDashboard() {
       quizAttempts,
       bestScore,
       isFullyCompleted,
-    };
-  }).filter(Boolean);
+    });
+  }
 
   // ==========================================================
   // الإحصائيات
@@ -95,7 +91,6 @@ async function initDashboard() {
     container.innerHTML = enrichedEnrollments.map((x) => {
       const { course, progressPct, isFullyCompleted, quiz, quizPassed, bestScore } = x;
 
-      // حالة الدورة
       let statusBadge = "";
       if (isFullyCompleted) {
         statusBadge = `<span class="badge bg-success position-absolute top-0 start-0 m-2">
@@ -103,29 +98,17 @@ async function initDashboard() {
         </span>`;
       }
 
-      // زر حسب الحالة
-            // زر حسب الحالة
       let buttonHTML = "";
       if (isFullyCompleted) {
-        buttonHTML = `
-          <a href="course.html?slug=${course.slug}" class="btn btn-sm btn-success w-100 mt-3">
-            <i class="bi bi-book"></i> افتح الدورة
-          </a>
-        `;
-      } else if (progressPct > 0) {
-        buttonHTML = `
-          <a href="learn.html?slug=${course.slug}" class="btn btn-sm btn-primary w-100 mt-3">
-            <i class="bi bi-play-circle"></i> استكمل التعلم
-          </a>
-        `;
+        buttonHTML = `<a href="course.html?slug=${course.slug}" class="btn btn-sm btn-success w-100 mt-3">
+          <i class="bi bi-book"></i> افتح الدورة
+        </a>`;
       } else {
-        buttonHTML = `
-          <a href="learn.html?slug=${course.slug}" class="btn btn-sm btn-primary w-100 mt-3">
-            <i class="bi bi-play-circle"></i> ابدأ التعلم
-          </a>
-        `;
+        buttonHTML = `<a href="learn.html?slug=${course.slug}" class="btn btn-sm btn-primary w-100 mt-3">
+          <i class="bi bi-play-circle"></i> ${progressPct > 0 ? "استكمل التعلم" : "ابدأ التعلم"}
+        </a>`;
       }
-      // ملاحظة حالة الاختبار
+
       let quizNote = "";
       if (quiz) {
         if (quizPassed) {
@@ -134,7 +117,7 @@ async function initDashboard() {
           </div>`;
         } else if (x.quizAttempts > 0) {
           quizNote = `<div class="small text-danger mt-1">
-            <i class="bi bi-x-circle-fill"></i> لم تنجح (${bestScore}%) — حاول تاني
+            <i class="bi bi-x-circle-fill"></i> لم تنجح (${bestScore}%)
           </div>`;
         } else {
           quizNote = `<div class="small text-muted mt-1">
@@ -150,7 +133,6 @@ async function initDashboard() {
             <img src="${course.thumbnail_url}" class="card-img-top course-thumbnail" style="height: 160px; object-fit: cover;" alt="">
             <div class="card-body">
               <h6 class="fw-bold mb-2 lh-base">${escapeHtml(course.title)}</h6>
-
               <div class="d-flex justify-content-between small text-muted mb-1">
                 <span>التقدم</span>
                 <strong class="${progressPct === 100 ? "text-success" : "text-primary"}">${progressPct}%</strong>
@@ -158,13 +140,10 @@ async function initDashboard() {
               <div class="progress" style="height: 6px;">
                 <div class="progress-bar ${progressPct === 100 ? "bg-success" : "gradient-brand"}" style="width: ${progressPct}%"></div>
               </div>
-
               <div class="small text-muted mt-2">
                 <i class="bi bi-list-check"></i> ${x.completed} / ${x.totalLessons} درس
               </div>
-
               ${quizNote}
-
               ${buttonHTML}
             </div>
           </div>
@@ -183,9 +162,6 @@ async function initDashboard() {
         لم تجرِ أي اختبار بعد
       </div>`;
   } else {
-    // الأحدث أولاً
-    const sorted = [...attempts].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-
     attemptsEl.innerHTML = `
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -198,12 +174,12 @@ async function initDashboard() {
             </tr>
           </thead>
           <tbody>
-            ${sorted.map((a) => {
+            ${attempts.map((a) => {
               const pct = a.total_points > 0 ? Math.round((a.score / a.total_points) * 100) : 0;
-              const passed = pct >= (a.pass_score || 60);
+              const passed = a.passed;
               return `
                 <tr>
-                  <td><strong>${escapeHtml(a.quiz_title || "اختبار")}</strong></td>
+                  <td><strong>${escapeHtml(a.quiz?.title || "اختبار")}</strong></td>
                   <td class="text-center fw-bold">${pct}%</td>
                   <td class="text-center">
                     <span class="badge ${passed ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}">
@@ -221,7 +197,7 @@ async function initDashboard() {
   }
 
   // ==========================================================
-  // ✅ شهاداتي — اللي اكتملت بالكامل
+  // شهاداتي
   // ==========================================================
   const certificatesEl = document.getElementById("certificatesList");
   const completedCoursesList = enrichedEnrollments.filter(x => x.isFullyCompleted);

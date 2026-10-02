@@ -1,5 +1,5 @@
 /* ==========================================================
-   Ta3leem — Quiz Engine (with Sidebar + Auto-Save)
+   Ta3leem — Quiz Engine (Supabase)
    ========================================================== */
 
 let quizState = {
@@ -13,9 +13,6 @@ let quizState = {
   startedAt: null,
 };
 
-// ==========================================================
-// بدء الاختبار
-// ==========================================================
 async function initQuiz() {
   const container = document.getElementById("quizContainer");
   if (!container) return;
@@ -30,9 +27,7 @@ async function initQuiz() {
     return;
   }
 
-  const quizzes = JSON.parse(localStorage.getItem("ta3leem_admin_quizzes") || "[]");
-  const quiz = quizzes.find(q => q.id === quizId);
-
+  const quiz = await getQuizById(quizId);
   if (!quiz) {
     container.innerHTML = `<div class="alert alert-danger">الاختبار غير موجود</div>`;
     return;
@@ -44,22 +39,15 @@ async function initQuiz() {
   }
 
   quizState.quiz = quiz;
-  // ✅ ضمان IDs فريدة لكل سؤال
-  quizState.questions = quiz.questions.map((q, i) => ({
-    ...q,
-    id: q.id !== undefined && q.id !== null ? q.id : (i + 1)
-  }));
+  quizState.questions = quiz.questions.map((q, i) => ({ ...q, id: q.id || (i + 1) }));
   quizState.answers = {};
   quizState.currentIndex = 0;
-  quizState.timeLeft = (quiz.time_limit_min || 15) * 50;
+  quizState.timeLeft = (quiz.time_limit_min || 15) * 60;
   quizState.startedAt = new Date();
 
   renderQuizStart();
 }
 
-// ==========================================================
-// شاشة البداية
-// ==========================================================
 function renderQuizStart() {
   const q = quizState.quiz;
   const container = document.getElementById("quizContainer");
@@ -94,18 +82,9 @@ function renderQuizStart() {
           <div class="col-6">
             <div class="p-3 bg-light rounded-3">
               <small class="text-muted d-block">المجموع</small>
-              <strong class="fs-5">${quizState.questions.reduce((s,q) => s + q.points, 0)} نقطة</strong>
+              <strong class="fs-5">${quizState.questions.reduce((s,q) => s + (q.points || 5), 0)} نقطة</strong>
             </div>
           </div>
-        </div>
-
-        <div class="alert alert-info small text-start">
-          <i class="bi bi-info-circle"></i>
-          <ul class="mb-0 mt-2 ps-3">
-            <li>سيتم تسليم الاختبار تلقائيًا عند انتهاء الوقت</li>
-            <li>يمكنك التنقل بين الأسئلة من الشريط الجانبي</li>
-            <li>تأكد من اتصالك بالإنترنت</li>
-          </ul>
         </div>
 
         <button class="btn btn-primary btn-lg w-100" onclick="startQuiz()">
@@ -116,9 +95,6 @@ function renderQuizStart() {
   `;
 }
 
-// ==========================================================
-// بدء
-// ==========================================================
 function startQuiz() {
   quizState.timer = setInterval(() => {
     quizState.timeLeft--;
@@ -131,12 +107,8 @@ function startQuiz() {
   renderQuizUI();
 }
 
-// ==========================================================
-// الـ UI الكامل
-// ==========================================================
 function renderQuizUI() {
   const container = document.getElementById("quizContainer");
-
   container.innerHTML = `
     <div class="row g-3 quiz-layout">
       <div class="col-lg-3 col-md-4 order-lg-2 order-md-2 order-1">
@@ -154,18 +126,15 @@ function renderQuizUI() {
               <div class="progress-bar gradient-brand" id="quizProgress" style="width: 0%"></div>
             </div>
           </div>
-
           <div class="card-body pt-0">
             <h6 class="fw-bold small text-muted mb-2">الأسئلة:</h6>
             <div class="questions-grid" id="questionsGrid"></div>
-
             <div class="quiz-legend mt-3">
               <div class="legend-item"><span class="legend-dot current"></span> الحالي</div>
               <div class="legend-item"><span class="legend-dot answered"></span> تم الإجابة</div>
               <div class="legend-item"><span class="legend-dot empty"></span> لم يُجب</div>
             </div>
           </div>
-
           <div class="card-footer bg-white border-0 p-3 pt-0">
             <button class="btn btn-success w-100" onclick="submitQuiz(false)">
               <i class="bi bi-send-check"></i> إنهاء وتسليم
@@ -182,9 +151,7 @@ function renderQuizUI() {
               <small class="text-muted"><i class="bi bi-star"></i> <span id="qPoints"></span> نقطة</small>
             </div>
           </div>
-
           <div class="card-body p-4" id="questionBody"></div>
-
           <div class="card-footer bg-white border-0 p-4 pt-0">
             <div class="d-flex justify-content-between gap-2">
               <button class="btn btn-outline-secondary" onclick="prevQuestion()" id="prevBtn">
@@ -206,9 +173,6 @@ function renderQuizUI() {
   updateTimerDisplay();
 }
 
-// ==========================================================
-// CSS
-// ==========================================================
 function addQuizStyles() {
   if (document.getElementById("quiz-custom-styles")) return;
   const style = document.createElement("style");
@@ -229,21 +193,12 @@ function addQuizStyles() {
     .answer-option { display: block; padding: 14px 16px; margin-bottom: 10px; border-radius: 12px; border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.2s; background: #fff; }
     .answer-option:hover { border-color: #7dd3fc; background: #f0f9ff; }
     .answer-option.selected { border-color: #0ea5e9; background: #e0f2fe; box-shadow: 0 0 0 3px rgba(14,165,233,0.15); }
-    .answer-option input[type="radio"] { margin-inline-end: 8px; }
-    @media (max-width: 992px) {
-      .quiz-sidebar { position: static !important; }
-      .questions-grid { grid-template-columns: repeat(8, 1fr); }
-    }
-    @media (max-width: 576px) {
-      .questions-grid { grid-template-columns: repeat(6, 1fr); }
-    }
+    @media (max-width: 992px) { .quiz-sidebar { position: static !important; } .questions-grid { grid-template-columns: repeat(8, 1fr); } }
+    @media (max-width: 576px) { .questions-grid { grid-template-columns: repeat(6, 1fr); } }
   `;
   document.head.appendChild(style);
 }
 
-// ==========================================================
-// شبكة الأسئلة
-// ==========================================================
 function renderQuestionsGrid() {
   const grid = document.getElementById("questionsGrid");
   if (!grid) return;
@@ -263,16 +218,13 @@ function goToQuestion(index) {
   renderQuestion();
 }
 
-// ==========================================================
-// رسم السؤال
-// ==========================================================
 function renderQuestion() {
   const idx = quizState.currentIndex;
   const q = quizState.questions[idx];
   const total = quizState.questions.length;
 
   document.getElementById("qNumber").textContent = `سؤال ${idx + 1} من ${total}`;
-  document.getElementById("qPoints").textContent = q.points;
+  document.getElementById("qPoints").textContent = q.points || 5;
 
   updateProgressBar();
 
@@ -281,7 +233,6 @@ function renderQuestion() {
   prevBtn.disabled = idx === 0;
   nextBtn.disabled = idx === total - 1;
 
-  // ✅ اقرأ الإجابة الخاصة بالسؤال ده بس
   const savedAnswer = quizState.answers[q.id];
   const hasAnswer = savedAnswer !== undefined && savedAnswer !== null;
 
@@ -322,9 +273,6 @@ function renderQuestion() {
   `;
 }
 
-// ==========================================================
-// حفظ الإجابة
-// ==========================================================
 function selectAnswer(questionId, value) {
   quizState.answers[questionId] = value;
   renderQuestionsGrid();
@@ -378,18 +326,13 @@ function updateTimerDisplay() {
   el.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 }
 
-// ==========================================================
-// التسليم
-// ==========================================================
 async function submitQuiz(auto = false) {
   if (!auto) {
     const unanswered = quizState.questions.filter(q => {
       const a = quizState.answers[q.id];
       return a === undefined || a === null;
     }).length;
-    const msg = unanswered > 0
-      ? `لديك ${unanswered} سؤال بدون إجابة. تسليم؟`
-      : "تسليم الاختبار؟";
+    const msg = unanswered > 0 ? `لديك ${unanswered} سؤال بدون إجابة. تسليم؟` : "تسليم الاختبار؟";
     if (!confirm(msg)) return;
   }
 
@@ -397,35 +340,35 @@ async function submitQuiz(auto = false) {
 
   let score = 0, total = 0;
   quizState.questions.forEach(q => {
-    total += q.points;
+    total += q.points || 5;
     const userAns = quizState.answers[q.id];
+    const correct = q.correct_answer;
+
     if (q.type === "mcq") {
-      if (userAns === q.correct_answer) score += q.points;
+      if (userAns === Number(correct) || userAns === correct) score += q.points || 5;
     } else if (q.type === "tf") {
-      if (userAns === q.correct_answer) score += q.points;
+      if (userAns === correct) score += q.points || 5;
     }
   });
 
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
   const passed = pct >= (quizState.quiz.pass_score || 60);
 
-  addAttempt({
-  user_id: quizState.user.id,
-  quiz_id: quizState.quiz.id,
-  quiz_title: quizState.quiz.title,
-  course_id: quizState.quiz.course_id,
-  course_title: quizState.quiz.course_title,
-  score, total_points: total,
-  pass_score: quizState.quiz.pass_score || 60,
-  answers: quizState.answers,
-  passed,
-});
+  const { error } = await addAttempt({
+    user_id: quizState.user.id,
+    quiz_id: quizState.quiz.id,
+    score, total_points: total,
+    answers: quizState.answers,
+    passed,
+  });
+
+  if (error) console.error("خطأ في حفظ المحاولة:", error);
 
   sessionStorage.setItem("lastQuizResult", JSON.stringify({
     quizId: quizState.quiz.id,
     quizTitle: quizState.quiz.title,
     courseId: quizState.quiz.course_id,
-    courseTitle: quizState.quiz.course_title,
+    courseTitle: quizState.quiz.course?.title || "",
     score, totalPoints: total, percent: pct, passed,
     questions: quizState.questions,
     answers: quizState.answers,

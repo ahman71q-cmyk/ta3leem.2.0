@@ -1,13 +1,36 @@
 /* ==========================================================
-   Ta3leem — Database (Supabase)
+   Ta3leem — Database (Supabase Only)
    ========================================================== */
 
 // ==========================================================
-// التصنيفات — Categories
+// Helper: escapeHtml
+// ==========================================================
+function escapeHtml(text) {
+  if (!text) return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ==========================================================
+// ⚠️ Fallback Constants (للكود القديم)
+// ==========================================================
+const LOCAL_CATEGORIES = [
+  { id: 1, name_ar: "برمجة", slug: "programming", icon: "bi-code-slash" },
+  { id: 2, name_ar: "تصميم", slug: "design", icon: "bi-palette" },
+  { id: 3, name_ar: "لغات", slug: "languages", icon: "bi-translate" },
+  { id: 4, name_ar: "تسويق", slug: "marketing", icon: "bi-megaphone" },
+  { id: 5, name_ar: "أعمال", slug: "business", icon: "bi-briefcase" },
+];
+
+const LOCAL_COURSES = [];
+
+// ==========================================================
+// 1. CATEGORIES — التصنيفات
 // ==========================================================
 async function getCategories() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("categories")
       .select("*")
       .order("name_ar");
@@ -20,11 +43,11 @@ async function getCategories() {
 }
 
 // ==========================================================
-// الدورات — Courses
+// 2. COURSES — الدورات
 // ==========================================================
 async function getCourses({ limit = 6, categoryId = null, level = null, search = "", sortBy = "newest" } = {}) {
   try {
-    let query = supabase
+    let query = sb
       .from("courses")
       .select(`
         id, title, slug, description, thumbnail_url,
@@ -38,19 +61,11 @@ async function getCourses({ limit = 6, categoryId = null, level = null, search =
     if (level) query = query.eq("level", level);
     if (search) query = query.ilike("title", `%${search}%`);
 
-    // الترتيب
     switch (sortBy) {
-      case "rating":
-        query = query.order("rating_avg", { ascending: false });
-        break;
-      case "popular":
-        query = query.order("students_count", { ascending: false });
-        break;
-      case "oldest":
-        query = query.order("created_at", { ascending: true });
-        break;
-      default:
-        query = query.order("created_at", { ascending: false });
+      case "rating": query = query.order("rating_avg", { ascending: false }); break;
+      case "popular": query = query.order("students_count", { ascending: false }); break;
+      case "oldest": query = query.order("created_at", { ascending: true }); break;
+      default: query = query.order("created_at", { ascending: false });
     }
 
     query = query.limit(limit);
@@ -64,12 +79,9 @@ async function getCourses({ limit = 6, categoryId = null, level = null, search =
   }
 }
 
-// ==========================================================
-// دورة واحدة بـ slug
-// ==========================================================
 async function getCourseBySlug(slug) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("courses")
       .select(`
         *,
@@ -85,7 +97,6 @@ async function getCourseBySlug(slug) {
 
     if (error) throw error;
 
-    // ترتيب الأقسام والدروس
     if (data.sections) {
       data.sections.sort((a, b) => a.position - b.position);
       data.sections.forEach(s => {
@@ -100,12 +111,9 @@ async function getCourseBySlug(slug) {
   }
 }
 
-// ==========================================================
-// درس واحد
-// ==========================================================
 async function getLessonById(id) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("lessons")
       .select(`
         *,
@@ -126,113 +134,333 @@ async function getLessonById(id) {
 }
 
 // ==========================================================
-// Helper: escapeHtml
+// 3. AUTH — المصادقة (Supabase Auth)
 // ==========================================================
-function escapeHtml(text) {
-  if (!text) return "";
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// ==========================================================
-// توافق مع الكود القديم (stubs مؤقتة)
-// ==========================================================
-// دي دوال مؤقتة بتشتغل بـ localStorage لحد ما ننقلها لـ Supabase
-
-// المستخدمين
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem("ta3leem_users") || "[]"); }
-  catch { return []; }
-}
-function saveUsers(users) { localStorage.setItem("ta3leem_users", JSON.stringify(users)); }
-
-function getCurrentUser() {
+async function getCurrentUser() {
   try {
-    const raw = localStorage.getItem("ta3leem_session");
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-function setCurrentUser(user) {
-  if (user) localStorage.setItem("ta3leem_session", JSON.stringify(user));
-  else localStorage.removeItem("ta3leem_session");
-}
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return null;
 
-// Attempts
-function getAllAttempts() {
-  try { return JSON.parse(localStorage.getItem("ta3leem_attempts") || "[]"); }
-  catch { return []; }
-}
-function addAttempt(attempt) {
-  const all = getAllAttempts();
-  all.push({
-    id: "a_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
-    ...attempt,
-    submitted_at: new Date().toISOString(),
-  });
-  localStorage.setItem("ta3leem_attempts", JSON.stringify(all));
-}
-function getAttemptsByUser(userId) {
-  return getAllAttempts().filter((a) => a.user_id === userId);
-}
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-// Presentations
-function getAllPresentations() {
-  try { return JSON.parse(localStorage.getItem("ta3leem_presentations") || "[]"); }
-  catch { return []; }
-}
-function savePresentations(list) {
-  localStorage.setItem("ta3leem_presentations", JSON.stringify(list));
-}
-function getPresentationsByCourse(courseId) {
-  return getAllPresentations().filter((p) => p.course_id === Number(courseId));
-}
-
-// Zoom
-function getAllZoomLinks() {
-  try { return JSON.parse(localStorage.getItem("ta3leem_zoom_links") || "[]"); }
-  catch { return []; }
-}
-function saveZoomLinks(list) {
-  localStorage.setItem("ta3leem_zoom_links", JSON.stringify(list));
-}
-function getZoomByCourse(courseId) {
-  return getAllZoomLinks().filter((z) => z.course_id === Number(courseId));
-}
-
-// Progress
-function getAllProgress() {
-  try { return JSON.parse(localStorage.getItem("ta3leem_progress") || "[]"); }
-  catch { return []; }
-}
-function saveProgress(list) {
-  localStorage.setItem("ta3leem_progress", JSON.stringify(list));
-}
-function markLessonComplete(userId, courseId, lessonId) {
-  const all = getAllProgress();
-  const key = `${userId}_${courseId}_${lessonId}`;
-  if (!all.find((p) => p.key === key)) {
-    all.push({
-      key, user_id: userId, course_id: courseId, lesson_id: lessonId,
-      completed_at: new Date().toISOString(),
-    });
-    saveProgress(all);
+    return {
+      id: user.id,
+      email: user.email,
+      full_name: profile?.full_name || user.email.split("@")[0],
+      role: profile?.role || "student",
+      grade: profile?.grade || null,
+      avatar_url: profile?.avatar_url,
+    };
+  } catch (err) {
+    console.error("خطأ في جلب المستخدم:", err);
+    return null;
   }
 }
-function isLessonComplete(userId, courseId, lessonId) {
-  const all = getAllProgress();
-  const key = `${userId}_${courseId}_${lessonId}`;
-  return all.some((p) => p.key === key);
+
+async function registerUser(fullName, email, password, grade = null) {
+  try {
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role: "student",
+          grade: grade,
+        },
+      },
+    });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
 }
 
-// Certificates
-function getAllCertificates() {
-  try { return JSON.parse(localStorage.getItem("ta3leem_certificates") || "[]"); }
-  catch { return []; }
+async function loginUser(email, password) {
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
 }
-function saveCertificates(list) {
-  localStorage.setItem("ta3leem_certificates", JSON.stringify(list));
+
+async function logoutUser() {
+  await sb.auth.signOut();
 }
+
+// ==========================================================
+// 4. ENROLLMENTS — التسجيل في الدورات
+// ==========================================================
+async function getEnrollments(userId) {
+  try {
+    const { data, error } = await sb
+      .from("enrollments")
+      .select(`
+        id, progress_pct, enrolled_at, completed_at,
+        course:courses(id, title, slug, thumbnail_url, duration_hours)
+      `)
+      .eq("user_id", userId)
+      .order("enrolled_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب التسجيلات:", err);
+    return [];
+  }
+}
+
+async function enrollInCourse(userId, courseId) {
+  try {
+    const { data, error } = await sb
+      .from("enrollments")
+      .insert({ user_id: userId, course_id: courseId, progress_pct: 0 })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") return { error: "أنت مسجل بالفعل" };
+      throw error;
+    }
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+// ==========================================================
+// 5. LESSON PROGRESS — تقدم الدروس
+// ==========================================================
+async function markLessonComplete(userId, courseId, lessonId) {
+  try {
+    const { error } = await sb
+      .from("lesson_progress")
+      .upsert({
+        user_id: userId,
+        lesson_id: lessonId,
+        course_id: courseId,
+        completed: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,lesson_id" });
+
+    if (error) throw error;
+    return { error: null };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+async function getLessonProgress(userId, courseId) {
+  try {
+    const { data, error } = await sb
+      .from("lesson_progress")
+      .select("lesson_id, completed")
+      .eq("user_id", userId)
+      .eq("course_id", courseId);
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب التقدم:", err);
+    return [];
+  }
+}
+
+async function isLessonComplete(userId, courseId, lessonId) {
+  try {
+    const { data, error } = await sb
+      .from("lesson_progress")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("lesson_id", lessonId)
+      .eq("completed", true)
+      .maybeSingle();
+
+    if (error) throw error;
+    return !!data;
+  } catch (err) {
+    return false;
+  }
+}
+
+// ==========================================================
+// 6. QUIZZES — الاختبارات
+// ==========================================================
+async function getQuizzes({ courseId = null } = {}) {
+  try {
+    let query = sb.from("quizzes").select(`
+      *,
+      course:courses(id, title, slug)
+    `);
+
+    if (courseId) query = query.eq("course_id", courseId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب الاختبارات:", err);
+    return [];
+  }
+}
+
+async function getQuizById(id) {
+  try {
+    const { data: quiz, error: qErr } = await sb
+      .from("quizzes")
+      .select(`*, course:courses(id, title, slug)`)
+      .eq("id", id)
+      .single();
+
+    if (qErr) throw qErr;
+
+    const { data: questions, error: qsErr } = await sb
+      .from("questions")
+      .select("*")
+      .eq("quiz_id", id)
+      .order("position");
+
+    if (qsErr) throw qsErr;
+
+    quiz.questions = questions || [];
+    return quiz;
+  } catch (err) {
+    console.error("خطأ في جلب الاختبار:", err);
+    return null;
+  }
+}
+
+// ==========================================================
+// 7. QUIZ ATTEMPTS — محاولات الاختبارات
+// ==========================================================
+async function addAttempt(attempt) {
+  try {
+    const { data, error } = await sb
+      .from("quiz_attempts")
+      .insert(attempt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err.message };
+  }
+}
+
+async function getAttemptsByUser(userId) {
+  try {
+    const { data, error } = await sb
+      .from("quiz_attempts")
+      .select(`
+        *,
+        quiz:quizzes(id, title, pass_score, course_id)
+      `)
+      .eq("user_id", userId)
+      .order("submitted_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب المحاولات:", err);
+    return [];
+  }
+}
+
+async function getAllAttempts() {
+  try {
+    const { data, error } = await sb
+      .from("quiz_attempts")
+      .select(`
+        *,
+        quiz:quizzes(id, title, pass_score, course_id)
+      `)
+      .order("submitted_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب كل المحاولات:", err);
+    return [];
+  }
+}
+
+// ==========================================================
+// 8. PRESENTATIONS — العروض
+// ==========================================================
+async function getAllPresentations() {
+  try {
+    const { data, error } = await sb
+      .from("presentations")
+      .select(`*, course:courses(id, title)`)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب العروض:", err);
+    return [];
+  }
+}
+
+async function getPresentationsByCourse(courseId) {
+  try {
+    const { data, error } = await sb
+      .from("presentations")
+      .select(`*, course:courses(id, title)`)
+      .eq("course_id", courseId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+// ==========================================================
+// 9. ZOOM LINKS — روابط البث
+// ==========================================================
+async function getAllZoomLinks() {
+  try {
+    const { data, error } = await sb
+      .from("zoom_links")
+      .select(`*, course:courses(id, title)`)
+      .order("date", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+async function getZoomByCourse(courseId) {
+  try {
+    const { data, error } = await sb
+      .from("zoom_links")
+      .select("*")
+      .eq("course_id", courseId)
+      .order("date", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+// ==========================================================
+// 10. CERTIFICATES — الشهادات
+// ==========================================================
 function generateCertificateCode() {
   const year = new Date().getFullYear();
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -240,43 +468,99 @@ function generateCertificateCode() {
   const part2 = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   return `TA3-${year}-${part1}-${part2}`;
 }
-function getOrCreateCertificate(userId, courseId, studentName, courseTitle) {
-  const all = getAllCertificates();
-  const existing = all.find(c => c.user_id === userId && c.course_id === courseId);
-  if (existing) return existing;
-  const cert = {
-    id: "c_" + Date.now(),
-    code: generateCertificateCode(),
-    user_id: userId,
-    course_id: courseId,
-    student_name: studentName,
-    course_title: courseTitle,
-    issued_at: new Date().toISOString(),
-  };
-  all.push(cert);
-  saveCertificates(all);
-  return cert;
-}
 
-// Settings
-function getSettings() {
+async function getOrCreateCertificate(userId, courseId) {
   try {
-    const raw = localStorage.getItem("ta3leem_settings");
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return {
-    platform_name: "Ta3leem",
-    platform_name_ar: "تعليم",
-    manager_name: "أحمد كرم",
-    manager_title: "مدير المنصة",
-    stamp_text: "معتمد من Ta3leem",
-  };
-}
-function saveSettings(settings) {
-  localStorage.setItem("ta3leem_settings", JSON.stringify(settings));
+    // هل موجودة؟
+    const { data: existing } = await sb
+      .from("certificates")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("course_id", courseId)
+      .maybeSingle();
+
+    if (existing) return existing;
+
+    // إنشاء جديدة
+    const code = generateCertificateCode();
+    const { data, error } = await sb
+      .from("certificates")
+      .insert({ user_id: userId, course_id: courseId, code })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error("خطأ في الشهادة:", err);
+    return null;
+  }
 }
 
-// Grades
+// ==========================================================
+// 11. SETTINGS — الإعدادات
+// ==========================================================
+async function getSettings() {
+  try {
+    const { data, error } = await sb.from("settings").select("*");
+    if (error) throw error;
+
+    const settings = {};
+    (data || []).forEach(row => {
+      settings[row.key] = row.value;
+    });
+
+    return {
+      platform_name: settings.platform_name || "Ta3leem",
+      platform_name_ar: settings.platform_name_ar || "تعليم",
+      manager_name: settings.manager_name || "أحمد كرم",
+      manager_title: settings.manager_title || "مدير المنصة",
+      stamp_text: settings.stamp_text || "معتمد من Ta3leem",
+    };
+  } catch (err) {
+    console.error("خطأ في الإعدادات:", err);
+    return {
+      platform_name: "Ta3leem",
+      platform_name_ar: "تعليم",
+      manager_name: "أحمد كرم",
+      manager_title: "مدير المنصة",
+      stamp_text: "معتمد من Ta3leem",
+    };
+  }
+}
+
+async function saveSettings(settings) {
+  try {
+    const rows = Object.entries(settings).map(([key, value]) => ({ key, value: String(value) }));
+    const { error } = await sb.from("settings").upsert(rows, { onConflict: "key" });
+    if (error) throw error;
+    return { error: null };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+// ==========================================================
+// 12. USERS — المستخدمين
+// ==========================================================
+async function getUsers() {
+  try {
+    const { data, error } = await sb
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("خطأ في جلب المستخدمين:", err);
+    return [];
+  }
+}
+
+// ==========================================================
+// 13. GRADES — السنوات الدراسية
+// ==========================================================
 const GRADES = [
   { id: "prep1", name: "الأول الإعدادي" },
   { id: "prep2", name: "الثاني الإعدادي" },
@@ -285,98 +569,28 @@ const GRADES = [
   { id: "sec2",  name: "الثاني الثانوي" },
   { id: "sec3",  name: "الثالث الثانوي" },
 ];
+
 function getGradeName(gradeId) {
   const g = GRADES.find((x) => x.id === gradeId);
   return g ? g.name : "غير محدد";
 }
 
-// توليد الإيميل والرقم السري
-function generateEmail(fullName, grade) {
-  const cleanName = (fullName || "student").trim().toLowerCase().replace(/\s+/g, ".");
-  let prefix = cleanName.replace(/[^a-z0-9.]/g, "");
-  if (!prefix || prefix.length < 2) {
-    prefix = "student" + Math.floor(Math.random() * 1000);
-  }
-  const gradeShort = (grade || "gen").replace("prep", "p").replace("sec", "s");
-  const suffix = Math.floor(100 + Math.random() * 900);
-  return `${prefix}${suffix}@${gradeShort}.ta3leem.local`;
-}
-function generatePassword() {
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const numbers = "23456789";
-  const pick = (str, n) => Array.from({ length: n }, () => str[Math.floor(Math.random() * str.length)]).join("");
-  return `${pick(letters, 3)}-${pick(numbers, 4)}-${pick(letters, 2)}`;
-}
-
 // ==========================================================
-// DB Object — للتوافق مع الكود القديم
+// 14. DB Object — للتوافق مع الكود
 // ==========================================================
 const DB = {
-  async getCourses(options = {}) {
-    return await getCourses(options);
-  },
-  async getCategories() {
-    return await getCategories();
-  },
-  async getCourseBySlug(slug) {
-    return await getCourseBySlug(slug);
-  },
-  async getLessonById(id) {
-    return await getLessonById(id);
-  },
-
-  // مؤقت — localStorage
-  async register(fullName, email, password, grade = null) {
-    const users = getUsers();
-    if (users.find(u => u.email === email.toLowerCase())) {
-      return { error: "البريد مسجل بالفعل" };
-    }
-    const user = {
-      id: "u_" + Date.now(),
-      full_name: fullName,
-      email: email.toLowerCase(),
-      password,
-      role: "student",
-      grade: grade || null,
-      created_at: new Date().toISOString(),
-    };
-    users.push(user);
-    saveUsers(users);
-    setCurrentUser({
-      id: user.id, email: user.email, full_name: user.full_name,
-      role: user.role, grade: user.grade,
-    });
-    return { data: user, error: null };
-  },
-
-  async login(email, password) {
-    const users = getUsers();
-    const user = users.find(u => u.email === email.toLowerCase() && u.password === password);
-    if (!user) return { error: "البريد أو كلمة المرور غير صحيحة" };
-    setCurrentUser({
-      id: user.id, email: user.email, full_name: user.full_name,
-      role: user.role, grade: user.grade,
-    });
-    return { data: user, error: null };
-  },
-
-  async logout() { setCurrentUser(null); },
-
-  getEnrollments(userId) {
-    try {
-      const all = JSON.parse(localStorage.getItem("ta3leem_enrollments") || "[]");
-      return all.filter(e => e.user_id === userId);
-    } catch { return []; }
-  },
-
-  enroll(userId, courseId) {
-    const all = JSON.parse(localStorage.getItem("ta3leem_enrollments") || "[]");
-    if (all.find(e => e.user_id === userId && e.course_id === courseId)) return false;
-    all.push({
-      id: "e_" + Date.now(), user_id: userId, course_id: courseId,
-      progress_pct: 0, enrolled_at: new Date().toISOString(),
-    });
-    localStorage.setItem("ta3leem_enrollments", JSON.stringify(all));
-    return true;
-  },
+  getCourses,
+  getCategories,
+  getCourseBySlug,
+  getLessonById,
+  getEnrollments,
+  enrollInCourse,
+  getCurrentUser,
+  register: registerUser,
+  login: loginUser,
+  logout: logoutUser,
+  getSettings,
+  saveSettings,
+  getUsers,
+  getGradeName,
 };

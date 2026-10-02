@@ -1,5 +1,5 @@
 /* ==========================================================
-   Ta3leem — Courses
+   Ta3leem — Courses (Supabase)
    ========================================================== */
 
 function renderStars(rating) {
@@ -50,28 +50,28 @@ function courseCardHTML(course) {
   `;
 }
 
-// ==========================================================
-// الرئيسية — 6 دورات
-// ==========================================================
 async function initHomeCoursesGrid() {
   const grid = document.getElementById("coursesGrid");
   if (!grid) return;
-  const courses = await DB.getCourses({ limit: 6 });
-  if (courses.length === 0) {
-    grid.innerHTML = `<div class="col-12 text-center py-5"><p class="text-muted">لا توجد دورات</p></div>`;
-    return;
+
+  try {
+    const courses = await getCourses({ limit: 6 });
+    if (courses.length === 0) {
+      grid.innerHTML = `<div class="col-12 text-center py-5"><p class="text-muted">لا توجد دورات</p></div>`;
+      return;
+    }
+    grid.innerHTML = courses.map(courseCardHTML).join("");
+  } catch (err) {
+    console.error(err);
+    grid.innerHTML = `<div class="col-12 text-center py-5"><p class="text-danger">فشل تحميل الدورات</p></div>`;
   }
-  grid.innerHTML = courses.map(courseCardHTML).join("");
 }
 
-// ==========================================================
-// courses.html
-// ==========================================================
 async function initCoursesPage() {
   const grid = document.getElementById("allCoursesGrid");
   if (!grid) return;
 
-  const cats = await DB.getCategories();
+  const cats = await getCategories();
   const catFilter = document.getElementById("categoryFilter");
   if (catFilter) {
     catFilter.innerHTML = '<option value="">كل التصنيفات</option>' +
@@ -82,7 +82,7 @@ async function initCoursesPage() {
 
   async function render() {
     grid.innerHTML = `<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>`;
-    const courses = await DB.getCourses({ ...state, limit: 50 });
+    const courses = await getCourses({ ...state, limit: 50 });
 
     if (courses.length === 0) {
       grid.innerHTML = `<div class="col-12 text-center py-5"><i class="bi bi-search fs-1 text-muted"></i><p class="text-muted mt-2">لا توجد نتائج</p></div>`;
@@ -118,9 +118,6 @@ async function initCoursesPage() {
   render();
 }
 
-// ==========================================================
-// course.html
-// ==========================================================
 async function initCourseDetail() {
   const container = document.getElementById("courseDetail");
   if (!container) return;
@@ -131,7 +128,7 @@ async function initCourseDetail() {
     return;
   }
 
-  const course = await DB.getCourseBySlug(slug);
+  const course = await getCourseBySlug(slug);
   if (!course) {
     container.innerHTML = `<div class="alert alert-danger">الدورة غير موجودة</div>`;
     return;
@@ -155,7 +152,7 @@ async function initCourseDetail() {
               <div class="d-flex align-items-center gap-3">
                 <i class="bi bi-file-text text-primary fs-4"></i>
                 <div>
-                  <a href="lesson.html?id=${l.id}" class="fw-semibold text-decoration-none text-dark">${escapeHtml(l.title)}</a>
+                  <a href="learn.html?slug=${course.slug}&lesson=${l.id}" class="fw-semibold text-decoration-none text-dark">${escapeHtml(l.title)}</a>
                   <small class="text-muted d-block">${l.duration_min} دقيقة</small>
                 </div>
               </div>
@@ -183,13 +180,13 @@ async function initCourseDetail() {
             ${course.category ? `<span class="badge bg-primary-subtle text-primary mb-2"><i class="bi ${course.category.icon}"></i> ${course.category.name_ar}</span>` : ""}
             <h1 class="h3 fw-bold mb-3">${escapeHtml(course.title)}</h1>
             <div class="d-flex flex-wrap gap-3 mb-3 small">
-              <span class="text-warning">${stars} <span class="text-muted ms-1">${course.rating_avg.toFixed(1)} (${course.rating_count} تقييم)</span></span>
-              <span class="text-muted"><i class="bi bi-people"></i> ${course.students_count.toLocaleString("ar-EG")} طالب</span>
+              <span class="text-warning">${stars} <span class="text-muted ms-1">${(course.rating_avg || 0).toFixed(1)} (${course.rating_count || 0} تقييم)</span></span>
+              <span class="text-muted"><i class="bi bi-people"></i> ${(course.students_count || 0).toLocaleString("ar-EG")} طالب</span>
               <span class="text-muted"><i class="bi bi-collection-play"></i> ${totalLessons} درس</span>
-              <span class="text-muted"><i class="bi bi-clock"></i> ${course.duration_hours} ساعة</span>
+              <span class="text-muted"><i class="bi bi-clock"></i> ${course.duration_hours || 0} ساعة</span>
             </div>
             <h5 class="fw-bold mt-4 mb-2">عن الدورة</h5>
-            <p class="text-muted lh-lg">${escapeHtml(course.description)}</p>
+            <p class="text-muted lh-lg">${escapeHtml(course.description || "")}</p>
           </div>
         </div>
         <div class="card border-0 shadow-sm rounded-4 mb-4">
@@ -220,20 +217,20 @@ async function initCourseDetail() {
 
   const btn = document.getElementById("enrollBtn");
   if (btn) {
-    const user = getCurrentUser();
-    const enrollments = user ? DB.getEnrollments(user.id) : [];
-    const isEnrolled = enrollments.some(e => e.course_id === course.id);
+    const user = await getCurrentUser();
+    const enrollments = user ? await getEnrollments(user.id) : [];
+    const isEnrolled = enrollments.some(e => e.course?.id === course.id);
 
     if (isEnrolled) {
       btn.innerHTML = '<i class="bi bi-play-circle"></i> ابدأ التعلم';
       btn.className = "btn btn-success w-100 btn-lg mb-2";
       btn.onclick = () => { window.location.href = `learn.html?slug=${course.slug}`; };
     } else {
-      btn.onclick = () => {
-        const u = getCurrentUser();
+      btn.onclick = async () => {
+        const u = await getCurrentUser();
         if (!u) { window.location.href = "login.html"; return; }
-        const ok = DB.enroll(u.id, course.id);
-        if (!ok) { alert("انت مسجل في الدورة بالفعل"); return; }
+        const { error } = await enrollInCourse(u.id, course.id);
+        if (error) { alert(error); return; }
         alert("✅ تم التسجيل بنجاح!");
         window.location.href = "learn.html?slug=" + course.slug;
       };

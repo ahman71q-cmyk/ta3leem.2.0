@@ -1,9 +1,9 @@
 /* ==========================================================
-   Ta3leem — Auth
+   Ta3leem — Auth (Supabase)
    ========================================================== */
 
 async function updateNavbar() {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   const guest = document.getElementById("guestButtons");
   const menu = document.getElementById("userMenu");
   const nameEl = document.getElementById("userName");
@@ -27,7 +27,7 @@ async function updateNavbar() {
   }
 }
 
-async function registerUser(e) {
+async function registerUserForm(e) {
   e.preventDefault();
   const form = e.target;
   const fullName = form.fullName.value.trim();
@@ -53,10 +53,10 @@ async function registerUser(e) {
   if (error) return showAlert(alertBox, "danger", error);
 
   showAlert(alertBox, "success", "✅ تم إنشاء حسابك! جاري التحويل...");
-  setTimeout(() => window.location.href = "dashboard.html", 1200);
+  setTimeout(() => window.location.href = "dashboard.html", 1500);
 }
 
-async function loginUser(e) {
+async function loginUserForm(e) {
   e.preventDefault();
   const form = e.target;
   const email = form.email.value.trim();
@@ -76,16 +76,13 @@ async function loginUser(e) {
 
   showAlert(alertBox, "success", "✅ تم تسجيل الدخول! جاري التحويل...");
 
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   const params = new URLSearchParams(window.location.search);
   const redirect = params.get("redirect");
 
   let destination = "dashboard.html";
-  if (redirect) {
-    destination = redirect;
-  } else if (user && user.role === "admin") {
-    destination = "admin.html";
-  }
+  if (redirect) destination = redirect;
+  else if (user && user.role === "admin") destination = "admin.html";
 
   setTimeout(() => window.location.href = destination, 800);
 }
@@ -98,7 +95,7 @@ async function logout(e) {
 }
 
 async function requireAuth() {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user) {
     const cur = window.location.pathname.split("/").pop();
     window.location.href = `login.html?redirect=${cur}`;
