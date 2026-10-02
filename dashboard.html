@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحتي | Ta3leem</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <div class="container">
+      <a class="navbar-brand fw-bold text-primary d-flex align-items-center gap-2" href="index.html">
+        <i class="bi bi-mortarboard-fill fs-3"></i><span>Ta3leem</span>
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <a href="index.html" class="btn btn-sm btn-outline-secondary border-0">الرئيسية</a>
+        <a href="courses.html" class="btn btn-sm btn-outline-secondary border-0">الدورات</a>
+        <a class="nav-link fw-semibold" href="quizzes.html"><i class="bi bi-clipboard-check"></i> الاختبارات</a>
+         <a class="nav-link fw-semibold" href="presentations.html"><i class="bi bi-easel"></i> العروض</a>
+        <div id="userMenu" class="dropdown">
+          <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle"></i><span id="userName">مستخدم</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item text-danger" href="#" onclick="logout(event)">خروج</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <section class="py-5" style="background: var(--gradient-soft);">
+    <div class="container">
+      <h1 class="fw-bold mb-2">أهلاً، <span id="studentName" class="text-gradient">طالب</span> 👋</h1>
+      <p class="text-muted mb-0">مرحبًا بك في لوحتك التعليمية</p>
+    </div>
+  </section>
+
+  <section class="py-4">
+    <div class="container">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body d-flex align-items-center gap-3">
+              <div class="icon-circle icon-primary" style="width:60px;height:60px;"><i class="bi bi-book-half fs-4"></i></div>
+              <div><div class="fs-3 fw-bold" id="statCourses">0</div><small class="text-muted">دورات مسجلة</small></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body d-flex align-items-center gap-3">
+              <div class="icon-circle icon-secondary" style="width:60px;height:60px;"><i class="bi bi-check-circle fs-4"></i></div>
+              <div><div class="fs-3 fw-bold" id="statCompleted">0</div><small class="text-muted">دورات مكتملة</small></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body d-flex align-items-center gap-3">
+              <div class="icon-circle icon-brand" style="width:60px;height:60px;"><i class="bi bi-hourglass-split fs-4 text-white"></i></div>
+              <div><div class="fs-3 fw-bold" id="statInProgress">0</div><small class="text-muted">قيد التقدم</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-4">
+    <div class="container">
+      <h4 class="fw-bold mb-3"><i class="bi bi-journal-bookmark text-primary"></i> دوراتي</h4>
+      <div class="row g-4" id="enrolledCourses">
+        <div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-4">
+    <div class="container">
+      <h4 class="fw-bold mb-3"><i class="bi bi-clipboard-check text-success"></i> نتائج الاختبارات</h4>
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0" id="quizAttempts"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-4 pb-5">
+    <div class="container">
+      <h4 class="fw-bold mb-3"><i class="bi bi-award text-warning"></i> شهاداتي</h4>
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body" id="certificatesList"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

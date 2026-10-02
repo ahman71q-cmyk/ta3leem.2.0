@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ta3leem — منصة تعليمية مجانية</title>
+  <meta name="description" content="منصة تعليم إلكتروني مجانية: دروس نصية، اختبارات تفاعلية، وعروض تقديمية.">
+
+  <!-- Bootstrap 5 RTL -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <!-- AOS Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ==========================================================
+       NAVBAR
+  =========================================================== -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <div class="container">
+
+      <a class="navbar-brand fw-bold text-primary d-flex align-items-center gap-2" href="index.html">
+        <i class="bi bi-mortarboard-fill fs-3"></i>
+        <span>Ta3leem</span>
+      </a>
+
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active fw-semibold" href="index.html">الرئيسية</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link fw-semibold" href="courses.html">الدورات</a>
+          </li>
+          
+          <li class="nav-item">
+  <a class="nav-link fw-semibold" href="quizzes.html">
+    <i class="bi bi-clipboard-check"></i> الاختبارات
+  </a>
+</li>
+<li class="nav-item">
+  <a class="nav-link fw-semibold" href="presentations.html">
+    <i class="bi bi-easel"></i> العروض
+  </a>
+</li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleTheme()" title="تغيير الثيم">
+            <i class="bi bi-moon-stars" id="themeIcon"></i>
+          </button>
+
+          <!-- أزرار الزائر -->
+          <div id="guestButtons" class="d-flex gap-2">
+            <a href="login.html" class="btn btn-sm btn-outline-primary px-3">دخول</a>
+            <a href="register.html" class="btn btn-sm btn-primary px-3">إنشاء حساب</a>
+          </div>
+
+          <!-- قائمة المستخدم المسجل -->
+          <div id="userMenu" class="dropdown d-none">
+            <button class="btn btn-sm btn-light dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle fs-5"></i>
+              <span id="userName">مستخدم</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="dashboard.html"><i class="bi bi-speedometer2 me-2"></i> لوحتي</a></li>
+<a class="dropdown-item d-none" href="admin.html" id="adminLink">
+  <i class="bi bi-gear me-2"></i> لوحة التحكم
+</a>              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="#" onclick="logout(event)"><i class="bi bi-box-arrow-right me-2"></i> خروج</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- ==========================================================
+       HERO
+  =========================================================== -->
+  <section class="hero-section py-5">
+    <div class="container">
+      <div class="row align-items-center g-5">
+        <div class="col-lg-6" data-aos="fade-left">
+          <span class="badge bg-white text-primary px-3 py-2 mb-3 shadow-sm">
+            <i class="bi bi-stars"></i> مجانًا بالكامل
+          </span>
+          <h1 class="display-4 fw-bold mb-3 lh-base">
+            تعلّم بذكاء، <br>
+            <span class="text-gradient">وطوّر مهاراتك</span>
+          </h1>
+          <p class="lead text-muted mb-4">
+            منصة تعليمية متكاملة تجمع الدروس النصية والاختبارات التفاعلية
+            والعروض التقديمية في مكان واحد — بدون أي رسوم.
+          </p>
+          <div class="d-flex flex-wrap gap-3">
+            <a href="courses.html" class="btn btn-primary btn-lg px-4">
+              <i class="bi bi-play-circle me-1"></i> ابدأ التعلم الآن
+            </a>
+            <button class="btn btn-outline-primary btn-lg px-4" data-bs-toggle="modal" data-bs-target="#introVideoModal">
+              <i class="bi bi-camera-video me-1"></i> شاهد الفيديو التعريفي
+            </button>
+          </div>
+
+          <!-- إحصائيات -->
+          <div class="row g-4 mt-5">
+            <div class="col-4">
+              <div class="stat-box text-center">
+                <h3 class="text-primary fw-bold mb-0">
+                  <span class="counter" data-target="10">0</span>
+                </h3>
+                <small class="text-muted">دورة</small>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="stat-box text-center">
+                <h3 class="text-primary fw-bold mb-0">
+                  <span class="counter" data-target="120">0</span>
+                </h3>
+                <small class="text-muted">طالب</small>
+              </div>
+            </div>
+            <!-- <div class="col-4">
+              <div class="stat-box text-center">
+                <h3 class="text-primary fw-bold mb-0">
+                  <span class="counter" data-target="50">0</span>
+                </h3>
+                <small class="text-muted">مدرس</small>
+              </div>
+            </div> -->
+          </div>
+        </div>
+
+        <div class="col-lg-6 text-center" data-aos="fade-right">
+          <img
+            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800"
+            alt="تعلم"
+            class="img-fluid rounded-4 shadow-lg hero-image"
+          >
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       QUICK ACCESS — 3 كروت الأقسام
+  =========================================================== -->
+  <section class="py-5">
+    <div class="container">
+      <div class="text-center mb-5" data-aos="fade-up">
+        <h2 class="fw-bold mb-2">ماذا تجد في Ta3leem؟</h2>
+        <p class="text-muted">ثلاثة أقسام رئيسية بكل ما تحتاجه للتعلم</p>
+      </div>
+
+      <div class="row g-4">
+        <!-- الدروس -->
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="0">
+          <a href="courses.html#lessons" class="text-decoration-none">
+            <div class="card quick-card h-100 border-0 shadow-sm">
+              <div class="card-body text-center p-4">
+                <div class="icon-circle icon-primary mx-auto mb-3">
+                  <i class="bi bi-book fs-1"></i>
+                </div>
+                <h4 class="fw-bold mb-2">الدروس</h4>
+                <p class="text-muted mb-3">دروس نصية مفصّلة بمحتوى غنيّ ومصادر إضافية</p>
+                <span class="text-primary fw-semibold">
+                  استكشف <i class="bi bi-arrow-left"></i>
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <!-- الاختبارات -->
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+          <a href="quizzes.html" class="text-decoration-none">
+            <div class="card quick-card h-100 border-0 shadow-sm">
+              <div class="card-body text-center p-4">
+                <div class="icon-circle icon-secondary mx-auto mb-3">
+                  <i class="bi bi-clipboard-check fs-1"></i>
+                </div>
+                <h4 class="fw-bold mb-2">الاختبارات</h4>
+                <p class="text-muted mb-3">اختبر معرفتك بتصحيح تلقائي فوري ونتائج مفصّلة</p>
+                <span class="text-success fw-semibold">
+                  ابدأ <i class="bi bi-arrow-left"></i>
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <!-- العروض -->
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+          <a href="presentations.html" class="text-decoration-none">
+            <div class="card quick-card h-100 border-0 shadow-sm">
+              <div class="card-body text-center p-4">
+                <div class="icon-circle icon-brand mx-auto mb-3">
+                  <i class="bi bi-easel fs-1 text-white"></i>
+                </div>
+                <h4 class="fw-bold mb-2">العروض</h4>
+                <p class="text-muted mb-3">عروض PDF و PPTX بعارض داخلي مدمج</p>
+                <span class="text-gradient fw-semibold">
+                  شاهد <i class="bi bi-arrow-left"></i>
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       COURSES GRID
+  =========================================================== -->
+  <section class="py-5 bg-light-subtle">
+    <div class="container">
+      <div class="d-flex justify-content-between align-items-end mb-4 flex-wrap gap-3">
+        <div>
+          <h2 class="fw-bold mb-1">الدورات المتاحة</h2>
+          <p class="text-muted mb-0">اختر من بين مجموعة متنوعة من الدورات</p>
+        </div>
+        <a href="courses.html" class="btn btn-outline-primary">
+          كل الدورات <i class="bi bi-arrow-left"></i>
+        </a>
+      </div>
+
+      <div class="row g-4" id="coursesGrid">
+        <div class="col-12 text-center py-5">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="text-muted mt-2">جاري تحميل الدورات...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       HOW IT WORKS
+  =========================================================== -->
+  <section class="py-5">
+    <div class="container">
+      <div class="text-center mb-5" data-aos="fade-up">
+        <h2 class="fw-bold mb-2">كيف تعمل المنصة؟</h2>
+        <p class="text-muted">ثلاث خطوات بسيطة لبدء رحلتك التعليمية</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-4 text-center" data-aos="fade-up">
+          <div class="step-number mx-auto mb-3">1</div>
+          <h5 class="fw-bold">أنشئ حسابك مجانًا</h5>
+          <p class="text-muted">سجّل ببريدك الإلكتروني في أقل من دقيقة</p>
+        </div>
+        <div class="col-md-4 text-center" data-aos="fade-up" data-aos-delay="100">
+          <div class="step-number mx-auto mb-3">2</div>
+          <h5 class="fw-bold">اختر دورتك</h5>
+          <p class="text-muted">تصفح الدورات واختر ما يناسب مستواك واهتمامك</p>
+        </div>
+        <div class="col-md-4 text-center" data-aos="fade-up" data-aos-delay="200">
+          <div class="step-number mx-auto mb-3">3</div>
+          <h5 class="fw-bold">ابدأ التعلم واحصل على شهادة</h5>
+          <p class="text-muted">أكمل الدروس والاختبارات واحصل على شهادتك</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       TESTIMONIALS
+  =========================================================== -->
+  <section class="py-5 bg-light-subtle">
+    <div class="container">
+      <div class="text-center mb-5" data-aos="fade-up">
+        <h2 class="fw-bold mb-2">آراء طلابنا</h2>
+        <p class="text-muted">ماذا يقول من جرّب المنصة</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-4" data-aos="fade-up">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="text-warning mb-2">
+                <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+              </div>
+              <p class="mb-3">منصة رائعة! استفدت كتير من دورات البرمجة، والمحتوى منظم جدًا.</p>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar-circle">م</div>
+                <div>
+                  <strong>محمد أحمد</strong>
+                  <div class="text-muted small">طالب هندسة</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="text-warning mb-2">
+                <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+              </div>
+              <p class="mb-3">الاختبارات التفاعلية ساعدتني أتأكد إني فهمت صح. تجربة ممتازة!</p>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar-circle bg-success">س</div>
+                <div>
+                  <strong>سارة علي</strong>
+                  <div class="text-muted small">طالبة تصميم</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="text-warning mb-2">
+                <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-half"></i>
+              </div>
+              <p class="mb-3">أحب إن كل حاجة مجانية، والمحتوى بمستوى احترافي.</p>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar-circle bg-info">خ</div>
+                <div>
+                  <strong>خالد إبراهيم</strong>
+                  <div class="text-muted small">مطوّر ويب</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       FAQ
+  =========================================================== -->
+  <section class="py-5">
+    <div class="container" style="max-width: 800px;">
+      <div class="text-center mb-5" data-aos="fade-up">
+        <h2 class="fw-bold mb-2">أسئلة شائعة</h2>
+        <p class="text-muted">أكثر الأسئلة تكرارًا</p>
+      </div>
+
+      <div class="accordion" id="faqAccordion">
+        <div class="accordion-item border-0 shadow-sm mb-3 rounded-3">
+          <h2 class="accordion-header">
+            <button class="accordion-button fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+              هل المنصة مجانية بالكامل؟
+            </button>
+          </h2>
+          <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+            <div class="accordion-body text-muted">
+              نعم، المنصة مجانية 100% ولا تتطلب أي دفع للوصول إلى الدورات أو الاختبارات.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-3 rounded-3">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+              كيف أحصل على الشهادة؟
+            </button>
+          </h2>
+          <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body text-muted">
+              بعد إكمال جميع دروس الدورة والنجاح في الاختبار، تُصدر لك شهادة تلقائيًا يمكنك تحميلها بصيغة PDF.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-3 rounded-3">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+              هل يمكنني التعلم من الموبايل؟
+            </button>
+          </h2>
+          <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body text-muted">
+              بالتأكيد! المنصة متجاوبة بالكامل وتعمل على الموبايل والتابلت واللابتوب.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm rounded-3">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+              كيف أتواصل مع الدعم؟
+            </button>
+          </h2>
+          <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body text-muted">
+              يمكنك التواصل معنا عبر البريد الإلكتروني أو من خلال صفحة "تواصل معنا".
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       CTA NEWSLETTER
+  =========================================================== -->
+  <section class="py-5">
+    <div class="container">
+      <div class="cta-box p-5 rounded-4 text-center text-white position-relative overflow-hidden">
+        <div class="position-relative" style="z-index: 2;">
+          <h2 class="fw-bold mb-3">ابدأ رحلتك التعليمية اليوم</h2>
+          <p class="mb-4 opacity-75">انضم لآلاف الطلاب واستفد من المحتوى المجاني</p>
+          <a href="register.html" class="btn btn-light btn-lg px-5 fw-semibold">
+            <i class="bi bi-person-plus me-1"></i> إنشاء حساب مجاني
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       FOOTER
+  =========================================================== -->
+  <footer class="bg-dark text-white py-5 mt-5">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <h5 class="fw-bold d-flex align-items-center gap-2">
+            <i class="bi bi-mortarboard-fill text-primary"></i>
+            Ta3leem
+          </h5>
+          <p class="text-white-50 small">
+            منصة تعليم إلكتروني مجانية، تهدف لنشر المعرفة وتسهيل التعلم للجميع.
+          </p>
+        </div>
+
+        <div class="col-md-2">
+          <h6 class="fw-bold mb-3">روابط سريعة</h6>
+          <ul class="list-unstyled small">
+            <li><a href="index.html" class="text-white-50 text-decoration-none">الرئيسية</a></li>
+            <li><a href="courses.html" class="text-white-50 text-decoration-none">الدورات</a></li>
+            <li><a href="admin.html" class="text-white-50 text-decoration-none">لوحة التحكم</a></li>
+          </ul>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-bold mb-3">روابط مهمة</h6>
+          <ul class="list-unstyled small">
+            <li><a href="#" class="text-white-50 text-decoration-none">سياسة الخصوصية</a></li>
+            <li><a href="#" class="text-white-50 text-decoration-none">الشروط والأحكام</a></li>
+            <li><a href="#" class="text-white-50 text-decoration-none">تواصل معنا</a></li>
+          </ul>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-bold mb-3">تابعنا</h6>
+          <div class="d-flex gap-3">
+            <a href="#" class="text-white-50 fs-4"><i class="bi bi-facebook"></i></a>
+            <a href="#" class="text-white-50 fs-4"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" class="text-white-50 fs-4"><i class="bi bi-youtube"></i></a>
+            <a href="#" class="text-white-50 fs-4"><i class="bi bi-instagram"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-secondary my-4">
+
+      <div class="text-center text-white-50 small">
+        © <span id="currentYear"></span> Ta3leem. جميع الحقوق محفوظة.
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================================
+       MODAL — فيديو تعريفي
+  =========================================================== -->
+  <div class="modal fade" id="introVideoModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">الفيديو التعريفي</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="ratio ratio-16x9">
+            <iframe
+              src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+              title="الفيديو التعريفي"
+              allowfullscreen
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       SCRIPTS
+  =========================================================== -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/courses.js"></script>
+
+  <script>
+    // ============================================================
+    // 1. سنة الفوتر
+    // ============================================================
+    document.getElementById("currentYear").textContent = new Date().getFullYear();
+
+    // ============================================================
+    // 2. AOS
+    // ============================================================
+    if (typeof AOS !== "undefined") {
+      AOS.init({ duration: 700, once: true });
+    }
+
+    // ============================================================
+    // 3. عدّاد الأرقام
+    // ============================================================
+    document.querySelectorAll(".counter").forEach((el) => {
+      const target = parseInt(el.dataset.target || "0");
+      if (!target) return;
+
+      let current = 0;
+      const duration = 1500; // مدة العدّ (ms)
+      const stepTime = 30;
+      const steps = duration / stepTime;
+      const increment = target / steps;
+
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          current = target;
+          clearInterval(timer);
+        }
+        el.textContent = Math.floor(current).toLocaleString("ar-EG");
+      }, stepTime);
+    });
+
+    // ============================================================
+    // 4. Theme Toggle
+    // ============================================================
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute("data-bs-theme");
+      const next = current === "dark" ? "light" : "dark";
+      html.setAttribute("data-bs-theme", next);
+      localStorage.setItem("theme", next);
+      const icon = document.getElementById("themeIcon");
+      if (icon) {
+        icon.className = next === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+      }
+    }
+
+    // استرجاع الثيم المحفوظ
+    (function () {
+      const saved = localStorage.getItem("theme") || "light";
+      document.documentElement.setAttribute("data-bs-theme", saved);
+      document.addEventListener("DOMContentLoaded", () => {
+        const icon = document.getElementById("themeIcon");
+        if (icon) {
+          icon.className = saved === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
