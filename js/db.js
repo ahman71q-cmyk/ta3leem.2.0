@@ -88,7 +88,7 @@ async function getCourseBySlug(slug) {
         category:categories(name_ar, slug, icon),
         sections(
           id, title, position,
-          lessons(id, title, type, duration_min, position, is_free_preview)
+          lessons(id, title, type, duration_min, position, is_free_preview, content)
         )
       `)
       .eq("slug", slug)
