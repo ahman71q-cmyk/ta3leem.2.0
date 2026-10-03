@@ -594,3 +594,133 @@ const DB = {
   getUsers,
   getGradeName,
 };
+
+
+/* ==========================================================
+   🎨 Custom Modal — رسائل في منتصف الصفحة
+   ========================================================== */
+
+(function initCustomModal() {
+  // ضيف الـ modal في الصفحة لما تحمّل
+  document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("ta3leemModal")) return;
+
+    const modalHTML = `
+      <div id="ta3leemModal" class="ta3leem-modal-overlay">
+        <div class="ta3leem-modal-box">
+          <div id="ta3leemModalIcon" class="ta3leem-modal-icon"></div>
+          <h4 id="ta3leemModalTitle" class="ta3leem-modal-title"></h4>
+          <p id="ta3leemModalMessage" class="ta3leem-modal-message"></p>
+          <button id="ta3leemModalBtn" class="ta3leem-modal-btn">
+            حسناً
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", modalHTML);
+  });
+})();
+
+function showMessage(type, message, options = {}) {
+  const {
+    title = "",
+    buttonText = "حسناً",
+    onClose = null,
+    duration = null,  // لو null → لازم المستخدم يدوس
+  } = options;
+
+  // انتظر الـ DOM
+  setTimeout(() => {
+    const modal = document.getElementById("ta3leemModal");
+    if (!modal) return;
+
+    const iconEl = document.getElementById("ta3leemModalIcon");
+    const titleEl = document.getElementById("ta3leemModalTitle");
+    const messageEl = document.getElementById("ta3leemModalMessage");
+    const btnEl = document.getElementById("ta3leemModalBtn");
+
+    // إعدادات حسب النوع
+    const types = {
+      success: {
+        icon: '<i class="bi bi-check-circle-fill"></i>',
+        color: "#10b981",
+        defaultTitle: "تم بنجاح!",
+        bgColor: "#d1fae5"
+      },
+      danger: {
+        icon: '<i class="bi bi-x-circle-fill"></i>',
+        color: "#ef4444",
+        defaultTitle: "حدث خطأ",
+        bgColor: "#fee2e2"
+      },
+      warning: {
+        icon: '<i class="bi bi-exclamation-triangle-fill"></i>',
+        color: "#f59e0b",
+        defaultTitle: "تنبيه",
+        bgColor: "#fef3c7"
+      },
+      info: {
+        icon: '<i class="bi bi-info-circle-fill"></i>',
+        color: "#0ea5e9",
+        defaultTitle: "معلومة",
+        bgColor: "#e0f2fe"
+      }
+    };
+
+    const conf = types[type] || types.info;
+
+    // الأيقونة
+    iconEl.innerHTML = conf.icon;
+    iconEl.style.color = conf.color;
+    iconEl.style.backgroundColor = conf.bgColor;
+
+    // العنوان
+    titleEl.textContent = title || conf.defaultTitle;
+    titleEl.style.color = conf.color;
+
+    // الرسالة
+    messageEl.textContent = message;
+
+    // الزر
+    btnEl.textContent = buttonText;
+    btnEl.style.backgroundColor = conf.color;
+
+    // إظهار
+    modal.classList.add("active");
+
+    // زر الإغلاق
+    const closeModal = () => {
+      modal.classList.remove("active");
+      if (onClose) onClose();
+    };
+
+    btnEl.onclick = closeModal;
+
+    // إغلاق بالضغط على الخلفية
+    modal.onclick = (e) => {
+      if (e.target === modal) closeModal();
+    };
+
+    // إغلاق بمفتاح ESC
+    const escHandler = (e) => {
+      if (e.key === "Escape") {
+        closeModal();
+        document.removeEventListener("keydown", escHandler);
+      }
+    };
+    document.addEventListener("keydown", escHandler);
+
+    // إغلاق تلقائي (لو محدد)
+    if (duration) {
+      setTimeout(closeModal, duration);
+    }
+
+  }, 50);
+}
+
+// ✅ بدائل مختصرة
+const showSuccess = (msg, title) => showMessage("success", msg, { title });
+const showError   = (msg, title) => showMessage("danger", msg, { title });
+const showWarning = (msg, title) => showMessage("warning", msg, { title });
+const showInfo    = (msg, title) => showMessage("info", msg, { title });

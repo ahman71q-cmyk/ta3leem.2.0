@@ -496,3 +496,140 @@ html {
   background: var(--primary-500);
 }
 
+/* ==========================================================
+   🎨 Custom Modal — رسائل في منتصف الصفحة
+   ========================================================== */
+
+.ta3leem-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  padding: 1rem;
+  direction: rtl;
+}
+
+.ta3leem-modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ta3leem-modal-box {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 2rem 1.75rem 1.5rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family: 'Tajawal', sans-serif;
+}
+
+.ta3leem-modal-overlay.active .ta3leem-modal-box {
+  transform: scale(1) translateY(0);
+}
+
+.ta3leem-modal-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+  font-size: 2.5rem;
+  animation: modalIconPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ta3leem-modal-icon i {
+  line-height: 1;
+}
+
+@keyframes modalIconPop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.ta3leem-modal-title {
+  font-family: 'Cairo', sans-serif;
+  font-weight: 800;
+  font-size: 1.35rem;
+  margin-bottom: 0.75rem;
+  color: #0f172a;
+}
+
+.ta3leem-modal-message {
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  word-break: break-word;
+}
+
+.ta3leem-modal-btn {
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 2.5rem;
+  font-weight: 700;
+  font-family: 'Cairo', sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ta3leem-modal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  filter: brightness(1.05);
+}
+
+.ta3leem-modal-btn:active {
+  transform: translateY(0);
+}
+
+/* الوضع الليلي */
+[data-bs-theme="dark"] .ta3leem-modal-box {
+  background: #112331;
+  color: #e6f4fa;
+}
+
+[data-bs-theme="dark"] .ta3leem-modal-title {
+  color: #e6f4fa;
+}
+
+[data-bs-theme="dark"] .ta3leem-modal-message {
+  color: #9db8c7;
+}
+
+/* الموبايل */
+@media (max-width: 576px) {
+  .ta3leem-modal-box {
+    padding: 1.5rem 1.25rem 1.25rem;
+    border-radius: 16px;
+  }
+  .ta3leem-modal-icon {
+    width: 65px;
+    height: 65px;
+    font-size: 2rem;
+  }
+  .ta3leem-modal-title {
+    font-size: 1.15rem;
+  }
+  .ta3leem-modal-message {
+    font-size: 0.9rem;
+  }
+}

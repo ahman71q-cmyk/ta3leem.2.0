@@ -224,16 +224,31 @@ async function initCourseDetail() {
     if (isEnrolled) {
       btn.innerHTML = '<i class="bi bi-play-circle"></i> ابدأ التعلم';
       btn.className = "btn btn-success w-100 btn-lg mb-2";
-      btn.onclick = () => { window.location.href = `learn.html?slug=${course.slug}`; };
-    } else {
+
       btn.onclick = async () => {
-        const u = await getCurrentUser();
-        if (!u) { window.location.href = "login.html"; return; }
-        const { error } = await enrollInCourse(u.id, course.id);
-        if (error) { alert(error); return; }
-        alert("✅ تم التسجيل بنجاح!");
-        window.location.href = "learn.html?slug=" + course.slug;
-      };
+  const u = await getCurrentUser();
+  if (!u) { window.location.href = "login.html"; return; }
+
+  // زر loading
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> جاري التسجيل...';
+
+  const { error } = await enrollInCourse(u.id, course.id);
+
+  if (error) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-person-plus"></i> سجّل في الدورة';
+    showError(error, "تعذّر التسجيل");
+    return;
+  }
+
+  // نجاح → modal بدل alert
+  showSuccess("تم تسجيلك في الدورة بنجاح! جاري تحويلك للتعلم...", "🎉 مبروك");
+
+  setTimeout(() => {
+    window.location.href = "learn.html?slug=" + course.slug;
+  }, 1500);
+};
     }
   }
 }
