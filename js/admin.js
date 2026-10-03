@@ -850,19 +850,33 @@ async function savePlatformSettings() {
 // ==========================================================
 // Init
 // ==========================================================
+// ==========================================================
+// Init + Authentication Guard
+// ==========================================================
 document.addEventListener("DOMContentLoaded", async () => {
-  // ✅ حماية الصفحة
+  // ✅ 1. انتظر تحميل Supabase + جيب المستخدم
   const user = await getCurrentUser();
+
+  // لو مفيش مستخدم → وديه login
   if (!user) {
+    console.log("⛔ No user found → redirecting to login");
     window.location.href = "login.html?redirect=admin.html";
     return;
   }
+
+  // لو المستخدم مش أدمن → وديه dashboard
   if (user.role !== "admin") {
+    console.log("⛔ User is not admin:", user.role);
     alert("⚠️ هذه الصفحة مخصصة للمشرفين فقط");
     window.location.href = "dashboard.html";
     return;
   }
 
-  // عرض لوحة التحكم
-  renderDashboard();
+  // ✅ 2. تمام، اعرض لوحة التحكم
+  console.log("✅ Admin authenticated:", user.email);
+  await renderDashboard();
+
+  // ضيف اسم الأدمن في القائمة
+  const nameEl = document.getElementById("userName");
+  if (nameEl) nameEl.textContent = user.full_name || user.email;
 });
