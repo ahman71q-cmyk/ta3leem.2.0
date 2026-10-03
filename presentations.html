@@ -95,122 +95,169 @@
 <script src="js/db.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/files.js"></script>
-  <script src="js/pwa.js"></script>
+
+  
   <script>
-    let allPresentations = [];
-    let currentFilter = { search: "", courseId: "" };
+  let allPresentations = [];
+  let currentFilter = { search: "", courseId: "" };
 
-    function filterPresentations() {
-      const grid = document.getElementById("presentationsGrid");
-      let filtered = [...allPresentations];
+  // ==========================================================
+  // 1. فلترة العروض
+  // ==========================================================
+  async function filterPresentations() {
+    const grid = document.getElementById("presentationsGrid");
+    let filtered = [...allPresentations];
 
-      if (currentFilter.courseId) {
-        filtered = filtered.filter(p => p.course_id === Number(currentFilter.courseId));
-      }
-
-      if (currentFilter.search) {
-        const s = currentFilter.search.toLowerCase();
-        filtered = filtered.filter(p => p.title.toLowerCase().includes(s));
-      }
-
-      if (filtered.length === 0) {
-        grid.innerHTML = `
-          <div class="col-12 text-center py-5">
-            <i class="bi bi-search fs-1 text-muted"></i>
-            <p class="text-muted mt-2">لا توجد نتائج مطابقة</p>
-          </div>`;
-        return;
-      }
-
-      const allCourses = JSON.parse(localStorage.getItem("ta3leem_admin_courses") || "null") || LOCAL_COURSES;
-
-      grid.innerHTML = filtered.map((p) => {
-        const course = allCourses.find(c => c.id === p.course_id);
-        const iconClass = p.file_type === "pdf" ? "bi-file-earmark-pdf text-danger" : "bi-file-earmark-ppt text-warning";
-        return `
-          <div class="col-md-6 col-lg-4">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-              <div class="card-body p-4">
-                <div class="text-center mb-3">
-                  <i class="bi ${iconClass}" style="font-size: 3.5rem;"></i>
-                </div>
-                <h5 class="fw-bold text-center mb-2">${escapeHtml(p.title)}</h5>
-                <p class="text-muted small text-center mb-3">${escapeHtml(course?.title || "")}</p>
-                <div class="d-flex justify-content-between small text-muted mb-3">
-                  <span><i class="bi bi-file-earmark"></i> ${p.file_type.toUpperCase()}</span>
-                  <span><i class="bi bi-hdd"></i> ${formatFileSize(p.file_size || 0)}</span>
-                </div>
-                <button class="btn btn-primary w-100" onclick="openPresentation(${p.id})">
-                  <i class="bi bi-box-arrow-up-right"></i> فتح العرض
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
+    if (currentFilter.courseId) {
+      filtered = filtered.filter(p => p.course_id === Number(currentFilter.courseId));
     }
 
-    function loadPresentations() {
-      allPresentations = getAllPresentations();
-      const grid = document.getElementById("presentationsGrid");
+    if (currentFilter.search) {
+      const s = currentFilter.search.toLowerCase();
+      filtered = filtered.filter(p => p.title.toLowerCase().includes(s));
+    }
 
-      if (allPresentations.length === 0) {
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="col-12 text-center py-5">
+          <i class="bi bi-search fs-1 text-muted"></i>
+          <p class="text-muted mt-2">لا توجد نتائج مطابقة</p>
+        </div>`;
+      return;
+    }
+
+    // جيب الدورات من Supabase
+    const courses = await getCourses({ limit: 999 });
+
+    grid.innerHTML = filtered.map((p) => {
+      const course = courses.find(c => c.id === p.course_id);
+      const iconClass = p.file_type === "pdf"
+        ? "bi-file-earmark-pdf text-danger"
+        : "bi-file-earmark-ppt text-warning";
+
+      return `
+        <div class="col-md-6 col-lg-4">
+          <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+              <div class="text-center mb-3">
+                <i class="bi ${iconClass}" style="font-size: 3.5rem;"></i>
+              </div>
+              <h5 class="fw-bold text-center mb-2">${escapeHtml(p.title)}</h5>
+              <p class="text-muted small text-center mb-3">${escapeHtml(course?.title || "")}</p>
+              <div class="d-flex justify-content-between small text-muted mb-3">
+                <span><i class="bi bi-file-earmark"></i> ${(p.file_type || "pdf").toUpperCase()}</span>
+                <span><i class="bi bi-hdd"></i> ${formatFileSize(p.file_size || 0)}</span>
+              </div>
+              <a href="${p.file_url}" target="_blank" class="btn btn-primary w-100">
+                <i class="bi bi-box-arrow-up-right"></i> فتح العرض
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // ==========================================================
+  // 2. تحميل العروض من Supabase
+  // ==========================================================
+  async function loadPresentations() {
+    const grid = document.getElementById("presentationsGrid");
+
+    // اعرض spinner
+    grid.innerHTML = `
+      <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary"></div>
+        <p class="text-muted mt-2">جاري تحميل العروض...</p>
+      </div>`;
+
+    try {
+      // ✅ هنا الإصلاح — await
+      allPresentations = await getAllPresentations();
+
+      // ✅ لو مفيش عروض → اعرض الرسالة
+      if (!allPresentations || allPresentations.length === 0) {
         grid.innerHTML = `
           <div class="col-12 text-center py-5">
             <i class="bi bi-easel fs-1 text-muted"></i>
             <h4 class="fw-bold mt-3">لا توجد عروض بعد</h4>
             <p class="text-muted">سيتم إضافة العروض التقديمية قريبًا.</p>
-            <a href="courses.html" class="btn btn-primary"><i class="bi bi-book"></i> تصفح الدورات</a>
+            <a href="courses.html" class="btn btn-primary">
+              <i class="bi bi-book"></i> تصفح الدورات
+            </a>
           </div>`;
         return;
       }
 
       // فلتر الدورات
-      const allCourses = JSON.parse(localStorage.getItem("ta3leem_admin_courses") || "null") || LOCAL_COURSES;
+      const courses = await getCourses({ limit: 999 });
       const coursesWithPres = [...new Set(allPresentations.map(p => p.course_id))];
       const courseFilter = document.getElementById("courseFilter");
+
       if (courseFilter) {
         courseFilter.innerHTML = '<option value="">كل الدورات</option>' +
           coursesWithPres.map(id => {
-            const c = allCourses.find(x => x.id === id);
+            const c = courses.find(x => x.id === id);
             return c ? `<option value="${id}">${escapeHtml(c.title)}</option>` : "";
           }).join("");
       }
 
-      courseFilter?.addEventListener("change", e => {
+      // اعرض العروض
+      await filterPresentations();
+
+    } catch (err) {
+      console.error("خطأ في تحميل العروض:", err);
+      grid.innerHTML = `
+        <div class="col-12 text-center py-5">
+          <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+          <p class="text-danger mt-2">فشل تحميل العروض</p>
+          <small class="text-muted">${escapeHtml(err.message || "")}</small>
+        </div>`;
+    }
+  }
+
+  // ==========================================================
+  // 3. Theme Toggle
+  // ==========================================================
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = html.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
+    html.setAttribute("data-bs-theme", next);
+    localStorage.setItem("theme", next);
+    document.getElementById("themeIcon").className = next === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+  }
+
+  // ==========================================================
+  // 4. Init
+  // ==========================================================
+  (function () {
+    const saved = localStorage.getItem("theme") || "light";
+    document.documentElement.setAttribute("data-bs-theme", saved);
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const i = document.getElementById("themeIcon");
+      if (i) i.className = saved === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+
+      // ✅ انتظر تحميل الـ navbar ثم حمّل العروض
+      await updateNavbar();
+      await loadPresentations();
+
+      // اربط الفلاتر
+      document.getElementById("courseFilter")?.addEventListener("change", async (e) => {
         currentFilter.courseId = e.target.value;
-        filterPresentations();
+        await filterPresentations();
       });
 
       let timer;
-      document.getElementById("searchPresentation")?.addEventListener("input", e => {
+      document.getElementById("searchPresentation")?.addEventListener("input", (e) => {
         clearTimeout(timer);
-        timer = setTimeout(() => {
+        timer = setTimeout(async () => {
           currentFilter.search = e.target.value.trim();
-          filterPresentations();
+          await filterPresentations();
         }, 300);
       });
-
-      filterPresentations();
-    }
-
-    function toggleTheme() {
-      const html = document.documentElement;
-      const next = html.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
-      html.setAttribute("data-bs-theme", next);
-      localStorage.setItem("theme", next);
-      document.getElementById("themeIcon").className = next === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
-    }
-
-    (function () {
-      const saved = localStorage.getItem("theme") || "light";
-      document.documentElement.setAttribute("data-bs-theme", saved);
-      document.addEventListener("DOMContentLoaded", () => {
-        const i = document.getElementById("themeIcon");
-        if (i) i.className = saved === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
-        loadPresentations();
-      });
-    })();
-  </script>
+    });
+  })();
+</script>
 </body>
 </html>
