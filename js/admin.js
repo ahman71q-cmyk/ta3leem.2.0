@@ -850,6 +850,19 @@ async function savePlatformSettings() {
 // ==========================================================
 // Init
 // ==========================================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // ✅ حماية الصفحة
+  const user = await getCurrentUser();
+  if (!user) {
+    window.location.href = "login.html?redirect=admin.html";
+    return;
+  }
+  if (user.role !== "admin") {
+    alert("⚠️ هذه الصفحة مخصصة للمشرفين فقط");
+    window.location.href = "dashboard.html";
+    return;
+  }
+
+  // عرض لوحة التحكم
   renderDashboard();
 });

@@ -153,63 +153,70 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/db.js"></script>
-  <script src="js/auth.js"></script>
-  <script>
-    (async function() {
-      const user = await requireAuth();
-      if (!user) return;
+<script src="js/auth.js"></script>
+<script>
+  (async function() {
+    const user = await requireAuth();
+    if (!user) return;
 
-      document.getElementById("studentName").textContent = user.full_name || user.email;
+    document.getElementById("studentName").textContent = user.full_name || user.email;
 
-      // اسم الدورة
-      const slug = new URLSearchParams(window.location.search).get("course");
-      const allCourses = JSON.parse(localStorage.getItem("ta3leem_admin_courses") || "null") || LOCAL_COURSES;
+    const slug = new URLSearchParams(window.location.search).get("course");
+    let courseName = "—";
+    let courseObj = null;
 
-      let courseName = "—";
-      let courseObj = null;
+    // ✅ جيب الدورة من Supabase
+    if (slug) {
+      courseObj = await getCourseBySlug(slug);
+      if (courseObj) courseName = courseObj.title;
+    } else {
+      // من آخر محاولة
+      const attempts = await getAttemptsByUser(user.id);
+      const lastAttempt = attempts.sort((a, b) =>
+        new Date(b.submitted_at) - new Date(a.submitted_at))[0];
 
-      if (slug) {
-        courseObj = allCourses.find(x => x.slug === slug);
-        if (courseObj) courseName = courseObj.title;
-      } else {
-        const lastResult = sessionStorage.getItem("lastQuizResult");
-        if (lastResult) {
-          try {
-            const result = JSON.parse(lastResult);
-            if (result.courseTitle) courseName = result.courseTitle;
-            if (result.courseId) courseObj = allCourses.find(x => x.id === result.courseId);
-          } catch {}
+      if (lastAttempt) {
+        const quizzes = await getQuizzes();
+        const quiz = quizzes.find(q => q.id === lastAttempt.quiz_id);
+        if (quiz) {
+          courseName = quiz.course?.title || "—";
+          const courses = await getCourses({ limit: 999 });
+          courseObj = courses.find(c => c.id === quiz.course_id);
         }
       }
-      document.getElementById("courseName").textContent = courseName;
+    }
 
-      // التاريخ
-      document.getElementById("issuedDate").textContent =
-        new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    document.getElementById("courseName").textContent = courseName;
 
-      // ✅ المشكلة 4: كود التحقق
-      let certificateCode = "—";
-      if (courseObj) {
-        const cert = getOrCreateCertificate(
-          user.id,
-          courseObj.id,
-          user.full_name || user.email,
-          courseObj.title
-        );
-        certificateCode = cert.code;
-      }
-      document.getElementById("certCode").textContent = certificateCode;
+    // التاريخ
+    document.getElementById("issuedDate").textContent =
+      new Date().toLocaleDateString("ar-EG", {
+        year: "numeric", month: "long", day: "numeric"
+      });
 
-      // الإعدادات
-      const settings = getSettings();
-      document.getElementById("platformName").textContent = (settings.platform_name || "TA3LEEM").toUpperCase();
-      document.getElementById("platformNameAr").textContent = settings.platform_name_ar || "تعليم";
-      document.getElementById("managerName").textContent = settings.manager_name || "مدير المنصة";
-      document.getElementById("managerTitle").textContent = settings.manager_title || "مدير المنصة";
-      document.getElementById("stampText").textContent = settings.stamp_text || "معتمد من Ta3leem";
+    // ✅ كود الشهادة من Supabase
+    let certificateCode = "—";
+    if (courseObj && user) {
+      const cert = await getOrCreateCertificate(user.id, courseObj.id);
+      if (cert) certificateCode = cert.code;
+    }
+    document.getElementById("certCode").textContent = certificateCode;
 
-      document.title = `شهادة - ${courseName}`;
-    })();
-  </script>
+    // الإعدادات
+    const settings = await getSettings();
+    document.getElementById("platformName").textContent =
+      (settings.platform_name || "TA3LEEM").toUpperCase();
+    document.getElementById("platformNameAr").textContent =
+      settings.platform_name_ar || "تعليم";
+    document.getElementById("managerName").textContent =
+      settings.manager_name || "مدير المنصة";
+    document.getElementById("managerTitle").textContent =
+      settings.manager_title || "مدير المنصة";
+    document.getElementById("stampText").textContent =
+      settings.stamp_text || "معتمد من Ta3leem";
+
+    document.title = `شهادة - ${courseName}`;
+  })();
+</script>
 </body>
 </html>

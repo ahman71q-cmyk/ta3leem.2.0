@@ -27,174 +27,186 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-   <script src="js/supabase.js"></script> 
-  <script src="js/db.js"></script>
-  <script src="js/auth.js"></script>
-  <script>
-    function renderResult() {
-      const container = document.getElementById("resultContainer");
-      let raw = sessionStorage.getItem("lastQuizResult");
-      let result = null;
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  async function renderResult() {
+    const container = document.getElementById("resultContainer");
 
-      if (raw) {
-        try { result = JSON.parse(raw); } catch {}
+    // جيب النتيجة من sessionStorage
+    let raw = sessionStorage.getItem("lastQuizResult");
+    let result = null;
+
+    if (raw) {
+      try { result = JSON.parse(raw); } catch {}
+    }
+
+    // لو مش موجودة → جيب من Supabase
+    if (!result) {
+      const user = await getCurrentUser();
+      if (!user) {
+        container.innerHTML = `
+          <div class="alert alert-warning text-center">
+            <i class="bi bi-exclamation-triangle"></i>
+            لازم تسجّل دخول لعرض نتيجتك.
+            <a href="login.html" class="btn btn-sm btn-primary ms-2">دخول</a>
+          </div>`;
+        return;
       }
 
-      // ✅ المشكلة 3: لو sessionStorage فاضي → اقرأ من آخر محاولة
-      if (!result) {
-        const user = getCurrentUser();
-        if (!user) {
-          container.innerHTML = `
-            <div class="alert alert-warning text-center">
-              <i class="bi bi-exclamation-triangle"></i>
-              لازم تسجّل دخول لعرض نتيجتك.
-              <a href="login.html" class="btn btn-sm btn-primary ms-2">دخول</a>
-            </div>`;
-          return;
-        }
-
-        const attempts = getAttemptsByUser(user.id);
-        if (attempts.length === 0) {
-          container.innerHTML = `
-            <div class="alert alert-warning text-center">
-              <i class="bi bi-exclamation-triangle"></i>
-              لا توجد نتائج سابقة.
-              <a href="quizzes.html" class="btn btn-sm btn-primary ms-2">الاختبارات</a>
-            </div>`;
-          return;
-        }
-
-        const lastAttempt = attempts.sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))[0];
-        const quizzes = JSON.parse(localStorage.getItem("ta3leem_admin_quizzes") || "[]");
-        const quiz = quizzes.find(q => q.id === lastAttempt.quiz_id);
-
-        result = {
-          quizId: lastAttempt.quiz_id,
-          quizTitle: lastAttempt.quiz_title,
-          courseId: lastAttempt.course_id,
-          courseTitle: lastAttempt.course_title,
-          score: lastAttempt.score,
-          totalPoints: lastAttempt.total_points,
-          percent: lastAttempt.total_points > 0 ? Math.round((lastAttempt.score / lastAttempt.total_points) * 100) : 0,
-          passed: lastAttempt.passed,
-          questions: quiz?.questions || [],
-          answers: lastAttempt.answers || {},
-        };
-
-        sessionStorage.setItem("lastQuizResult", JSON.stringify(result));
+      const attempts = await getAttemptsByUser(user.id);
+      if (attempts.length === 0) {
+        container.innerHTML = `
+          <div class="alert alert-warning text-center">
+            <i class="bi bi-exclamation-triangle"></i>
+            لا توجد نتائج سابقة.
+            <a href="quizzes.html" class="btn btn-sm btn-primary ms-2">الاختبارات</a>
+          </div>`;
+        return;
       }
 
-      const { score, totalPoints, percent, passed, questions, answers, quizTitle } = result;
+      const last = attempts.sort((a, b) =>
+        new Date(b.submitted_at) - new Date(a.submitted_at))[0];
 
-      const statusHTML = passed
-        ? `<div class="text-success mb-3" style="font-size: 5rem;"><i class="bi bi-check-circle-fill"></i></div>
-           <h2 class="text-success fw-bold">🎉 مبروك! نجحت</h2>`
-        : `<div class="text-danger mb-3" style="font-size: 5rem;"><i class="bi bi-x-circle-fill"></i></div>
-           <h2 class="text-danger fw-bold">لم تنجح</h2>`;
+      const quiz = await getQuizById(last.quiz_id);
 
-      const reviewHTML = questions.map((q, i) => {
-        const userAns = answers[q.id];
-        const correct = q.correct_answer;
-        let isCorrect = false;
-        let userAnswerText = "لم تجب";
-        let correctAnswerText = "";
+      result = {
+        quizId: last.quiz_id,
+        quizTitle: quiz?.title || "اختبار",
+        courseId: quiz?.course_id,
+        courseTitle: quiz?.course?.title || "",
+        score: last.score,
+        totalPoints: last.total_points,
+        percent: last.total_points > 0
+          ? Math.round((last.score / last.total_points) * 100) : 0,
+        passed: last.passed,
+        questions: quiz?.questions || [],
+        answers: last.answers || {},
+      };
 
-        if (q.type === "mcq") {
-          const opts = q.options || [];
-          if (userAns !== undefined) {
-            userAnswerText = opts[userAns] || "—";
-            isCorrect = userAns === correct;
-          }
-          correctAnswerText = opts[correct] || "—";
-        } else if (q.type === "tf") {
-          if (userAns !== undefined) {
-            userAnswerText = userAns === true ? "صح" : "خطأ";
-            isCorrect = userAns === correct;
-          }
-          correctAnswerText = correct === true ? "صح" : "خطأ";
+      sessionStorage.setItem("lastQuizResult", JSON.stringify(result));
+    }
+
+    const { score, totalPoints, percent, passed, questions, answers, quizTitle } = result;
+
+    const statusHTML = passed
+      ? `<div class="text-success mb-3" style="font-size: 5rem;">
+           <i class="bi bi-check-circle-fill"></i>
+         </div>
+         <h2 class="text-success fw-bold">🎉 مبروك! نجحت</h2>`
+      : `<div class="text-danger mb-3" style="font-size: 5rem;">
+           <i class="bi bi-x-circle-fill"></i>
+         </div>
+         <h2 class="text-danger fw-bold">لم تنجح</h2>`;
+
+    const reviewHTML = questions.map((q, i) => {
+      const userAns = answers[q.id];
+      const correct = q.correct_answer;
+      let isCorrect = false;
+      let userAnswerText = "لم تجب";
+      let correctAnswerText = "";
+
+      if (q.type === "mcq") {
+        const opts = q.options || [];
+        if (userAns !== undefined && userAns !== null) {
+          userAnswerText = opts[userAns] || "—";
+          isCorrect = userAns === correct;
         }
+        correctAnswerText = opts[correct] || "—";
+      } else if (q.type === "tf") {
+        if (userAns !== undefined && userAns !== null) {
+          userAnswerText = userAns === true ? "صح" : "خطأ";
+          isCorrect = userAns === correct;
+        }
+        correctAnswerText = correct === true ? "صح" : "خطأ";
+      }
 
-        const icon = isCorrect
-          ? '<i class="bi bi-check-circle-fill text-success"></i>'
-          : '<i class="bi bi-x-circle-fill text-danger"></i>';
+      const icon = isCorrect
+        ? '<i class="bi bi-check-circle-fill text-success"></i>'
+        : '<i class="bi bi-x-circle-fill text-danger"></i>';
 
-        return `
-          <div class="p-3 border-bottom">
-            <div class="d-flex gap-2 mb-2">
-              ${icon}
-              <strong class="flex-grow-1">س${i + 1}. ${escapeHtml(q.text)}</strong>
-              <small class="text-muted">${q.points} نقطة</small>
-            </div>
-            <div class="small ps-4">
-              <div class="mb-1"><strong>إجابتك:</strong>
-                <span class="${isCorrect ? "text-success" : "text-danger"}">${escapeHtml(String(userAnswerText))}</span>
-              </div>
-              ${!isCorrect
-                ? `<div><strong>الإجابة الصحيحة:</strong> <span class="text-success">${escapeHtml(String(correctAnswerText))}</span></div>`
-                : ""}
-            </div>
+      return `
+        <div class="p-3 border-bottom">
+          <div class="d-flex gap-2 mb-2">
+            ${icon}
+            <strong class="flex-grow-1">س${i + 1}. ${escapeHtml(q.text)}</strong>
+            <small class="text-muted">${q.points} نقطة</small>
           </div>
-        `;
-      }).join("");
-
-      container.innerHTML = `
-        <div class="card border-0 shadow-sm rounded-4 mx-auto mb-4" style="max-width: 700px;">
-          <div class="card-body text-center p-5">
-            ${statusHTML}
-            <p class="text-muted mb-4">${escapeHtml(quizTitle || "")}</p>
-
-            <div class="row g-3 mb-4">
-              <div class="col-4">
-                <div class="p-3 bg-light rounded-3">
-                  <div class="fs-3 fw-bold text-primary">${score}</div>
-                  <small class="text-muted">نقاطك</small>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="p-3 bg-light rounded-3">
-                  <div class="fs-3 fw-bold">${totalPoints}</div>
-                  <small class="text-muted">المجموع</small>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="p-3 bg-light rounded-3">
-                  <div class="fs-3 fw-bold ${passed ? "text-success" : "text-danger"}">${percent}%</div>
-                  <small class="text-muted">النسبة</small>
-                </div>
-              </div>
+          <div class="small ps-4">
+            <div class="mb-1"><strong>إجابتك:</strong>
+              <span class="${isCorrect ? "text-success" : "text-danger"}">
+                ${escapeHtml(String(userAnswerText))}
+              </span>
             </div>
-
-            <div class="d-flex gap-2 justify-content-center flex-wrap">
-              <a href="dashboard.html" class="btn btn-primary">
-                <i class="bi bi-speedometer2"></i> لوحتي
-              </a>
-              <a href="quizzes.html" class="btn btn-outline-primary">
-                <i class="bi bi-clipboard-check"></i> الاختبارات
-              </a>
-              ${passed
-                ? `<a href="certificate.html?course=${result.courseId}" class="btn btn-success">
-                     <i class="bi bi-award"></i> احصل على الشهادة
-                   </a>`
-                : `<a href="quiz.html?id=${result.quizId}" class="btn btn-warning">
-                     <i class="bi bi-arrow-clockwise"></i> إعادة المحاولة
-                   </a>`}
-            </div>
-          </div>
-        </div>
-
-        <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 700px;">
-          <div class="card-header bg-white border-0 p-4 pb-2">
-            <h5 class="fw-bold mb-0"><i class="bi bi-list-check"></i> مراجعة الإجابات</h5>
-          </div>
-          <div class="card-body p-0">
-            ${reviewHTML || '<p class="text-muted text-center py-4">لا توجد تفاصيل للمراجعة</p>'}
+            ${!isCorrect
+              ? `<div><strong>الإجابة الصحيحة:</strong>
+                   <span class="text-success">${escapeHtml(String(correctAnswerText))}</span>
+                 </div>`
+              : ""}
           </div>
         </div>
       `;
-    }
+    }).join("");
 
-    document.addEventListener("DOMContentLoaded", renderResult);
-  </script>
+    container.innerHTML = `
+      <div class="card border-0 shadow-sm rounded-4 mx-auto mb-4" style="max-width: 700px;">
+        <div class="card-body text-center p-5">
+          ${statusHTML}
+          <p class="text-muted mb-4">${escapeHtml(quizTitle || "")}</p>
+
+          <div class="row g-3 mb-4">
+            <div class="col-4">
+              <div class="p-3 bg-light rounded-3">
+                <div class="fs-3 fw-bold text-primary">${score}</div>
+                <small class="text-muted">نقاطك</small>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-3 bg-light rounded-3">
+                <div class="fs-3 fw-bold">${totalPoints}</div>
+                <small class="text-muted">المجموع</small>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-3 bg-light rounded-3">
+                <div class="fs-3 fw-bold ${passed ? "text-success" : "text-danger"}">${percent}%</div>
+                <small class="text-muted">النسبة</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="dashboard.html" class="btn btn-primary">
+              <i class="bi bi-speedometer2"></i> لوحتي
+            </a>
+            <a href="quizzes.html" class="btn btn-outline-primary">
+              <i class="bi bi-clipboard-check"></i> الاختبارات
+            </a>
+            ${passed
+              ? `<a href="certificate.html?course=${result.courseId || ""}" class="btn btn-success">
+                   <i class="bi bi-award"></i> احصل على الشهادة
+                 </a>`
+              : `<a href="quiz.html?id=${result.quizId}" class="btn btn-warning">
+                   <i class="bi bi-arrow-clockwise"></i> إعادة المحاولة
+                 </a>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 700px;">
+        <div class="card-header bg-white border-0 p-4 pb-2">
+          <h5 class="fw-bold mb-0"><i class="bi bi-list-check"></i> مراجعة الإجابات</h5>
+        </div>
+        <div class="card-body p-0">
+          ${reviewHTML || '<p class="text-muted text-center py-4">لا توجد تفاصيل للمراجعة</p>'}
+        </div>
+      </div>
+    `;
+  }
+
+  document.addEventListener("DOMContentLoaded", renderResult);
+</script>
 </body>
 </html>

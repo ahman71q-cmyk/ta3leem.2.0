@@ -77,271 +77,329 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js"></script> 
-  <script src="js/db.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/files.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/files.js"></script>
   <script>
-    let currentCourse = null;
-    let currentUser = null;
-    let currentItem = null;
-    let allItems = [];
+  let currentCourse = null;
+  let currentUser = null;
+  let currentItem = null;
+  let allItems = [];
 
-    async function initLearn() {
-      currentUser = await requireAuth();
-      if (!currentUser) return;
+  async function initLearn() {
+    currentUser = await requireAuth();
+    if (!currentUser) return;
 
-      const slug = new URLSearchParams(window.location.search).get("slug");
-      if (!slug) {
-        document.getElementById("learnContent").innerHTML = '<div class="alert alert-danger">لم يتم تحديد دورة</div>';
-        return;
-      }
+    const slug = new URLSearchParams(window.location.search).get("slug");
+    if (!slug) {
+      document.getElementById("learnContent").innerHTML =
+        '<div class="alert alert-danger">لم يتم تحديد دورة</div>';
+      return;
+    }
 
-      // ✅ المشكلة 6: اقرأ من الأدمن أولاً
-      const allCourses = JSON.parse(localStorage.getItem("ta3leem_admin_courses") || "null") || LOCAL_COURSES;
-      currentCourse = allCourses.find(c => c.slug === slug);
+    // ✅ جيب الدورة من Supabase
+    currentCourse = await getCourseBySlug(slug);
 
-      if (!currentCourse) {
-        document.getElementById("learnContent").innerHTML = '<div class="alert alert-danger">الدورة غير موجودة</div>';
-        return;
-      }
+    if (!currentCourse) {
+      document.getElementById("learnContent").innerHTML =
+        '<div class="alert alert-danger">الدورة غير موجودة</div>';
+      return;
+    }
 
-      document.getElementById("courseName").textContent = currentCourse.title;
+    document.getElementById("courseName").textContent = currentCourse.title;
 
-      allItems = [];
+    // ✅ تحقق إن الطالب مسجل في الدورة
+    const enrollments = await getEnrollments(currentUser.id);
+    const isEnrolled = enrollments.some(e => e.course?.id === currentCourse.id);
 
-      // الدروس من sections
-      (currentCourse.sections || []).forEach(s => {
-        (s.lessons || []).forEach(l => {
-          allItems.push({
-            type: "lesson",
-            id: l.id,
-            title: l.title,
-            duration: l.duration_min,
-            content: l.content,
-            section: s.title,
-          });
-        });
-      });
+    if (!isEnrolled && currentUser.role !== "admin") {
+      document.getElementById("learnContent").innerHTML = `
+        <div class="alert alert-warning text-center">
+          <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
+          <h4>لم تسجل في هذه الدورة بعد</h4>
+          <p>يجب التسجيل في الدورة أولاً للوصول إلى الدروس.</p>
+          <a href="course.html?slug=${slug}" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i> سجّل الآن
+          </a>
+        </div>`;
+      return;
+    }
 
-      // دروس الأدمن
-      const adminLessons = JSON.parse(localStorage.getItem("ta3leem_admin_lessons") || "[]")
-        .filter(l => l.course_id === currentCourse.id);
-      adminLessons.forEach(l => {
-        if (!allItems.find(i => i.type === "lesson" && i.id === l.id)) {
-          allItems.push({
-            type: "lesson",
-            id: l.id,
-            title: l.title,
-            duration: l.duration_min,
-            content: l.content,
-            section: l.section_title || "دروس إضافية",
-          });
-        }
-      });
+    allItems = [];
 
-      // العروض
-      const presentations = getPresentationsByCourse(currentCourse.id);
-      presentations.forEach(p => {
+    // ✅ الدروس من sections
+    (currentCourse.sections || []).forEach(s => {
+      (s.lessons || []).forEach(l => {
         allItems.push({
-          type: "presentation",
-          id: p.id,
-          title: p.title,
-          fileType: p.file_type,
-          fileSize: p.file_size,
-          fileName: p.file_name,
-          section: "العروض التقديمية",
+          type: "lesson",
+          id: l.id,
+          title: l.title,
+          duration: l.duration_min,
+          content: l.content,
+          section: s.title,
         });
       });
+    });
 
-      // Zoom
-      const zooms = getZoomByCourse(currentCourse.id);
-      zooms.forEach(z => {
-        allItems.push({
-          type: "zoom",
-          id: z.id,
-          title: z.title,
-          url: z.url,
-          date: z.date,
-          section: "البث المباشر",
-        });
+    // ✅ العروض من Supabase
+    const presentations = await getPresentationsByCourse(currentCourse.id);
+    presentations.forEach(p => {
+      allItems.push({
+        type: "presentation",
+        id: p.id,
+        title: p.title,
+        fileUrl: p.file_url,
+        fileType: p.file_type,
+        fileSize: p.file_size,
+        fileName: p.file_name,
+        section: "العروض التقديمية",
       });
+    });
 
-      // الاختبار
-      const quizzes = JSON.parse(localStorage.getItem("ta3leem_admin_quizzes") || "[]")
-        .filter(q => q.course_id === currentCourse.id);
-      if (quizzes.length > 0) {
-        allItems.push({
-          type: "quiz",
-          id: quizzes[0].id,
-          title: quizzes[0].title,
-          questions: quizzes[0].questions?.length || 0,
-          timeLimit: quizzes[0].time_limit_min,
-          section: "الاختبار النهائي",
-        });
-      }
-
-      // ✅ المشكلة 8: ترتيب العناصر
-      const order = { "lesson": 1, "presentation": 2, "zoom": 3, "quiz": 4 };
-      allItems.sort((a, b) => (order[a.type] || 99) - (order[b.type] || 99));
-
-      renderSidebar();
-      updateProgress();
-
-      if (allItems.length > 0) {
-        loadItem(allItems[0]);
-      } else {
-        document.getElementById("learnContent").innerHTML = `
-          <div class="text-center py-5">
-            <i class="bi bi-inbox fs-1 text-muted"></i>
-            <h4 class="fw-bold mt-3">لا يوجد محتوى بعد</h4>
-            <p class="text-muted">لم تتم إضافة دروس أو عروض لهذه الدورة.</p>
-          </div>`;
-      }
-    }
-
-    function renderSidebar() {
-      const grouped = {};
-      allItems.forEach(item => {
-        const sec = item.section || "المحتوى";
-        if (!grouped[sec]) grouped[sec] = [];
-        grouped[sec].push(item);
+    // ✅ روابط Zoom من Supabase
+    const zooms = await getZoomByCourse(currentCourse.id);
+    zooms.forEach(z => {
+      allItems.push({
+        type: "zoom",
+        id: z.id,
+        title: z.title,
+        url: z.url,
+        date: z.date,
+        section: "البث المباشر",
       });
+    });
 
-      let html = "";
-      Object.keys(grouped).forEach(secName => {
-        html += `<div class="section-title">${escapeHtml(secName)}</div>`;
-        grouped[secName].forEach(item => {
-          const icon = getItemIcon(item.type);
-          const isCompleted = item.type === "lesson" && isLessonComplete(currentUser.id, currentCourse.id, item.id);
-          html += `
-            <a href="#" class="lesson-nav-item ${isCompleted ? "completed" : ""}" data-type="${item.type}" data-id="${item.id}" onclick="loadItemFromClick(event, '${item.type}', ${item.id})">
-              <i class="bi ${icon}"></i>
-              <span class="flex-grow-1 small">${escapeHtml(item.title)}</span>
-              ${isCompleted ? '<i class="bi bi-check-circle-fill check"></i>' : ""}
-            </a>
-          `;
-        });
+    // ✅ الاختبار من Supabase
+    const quizzes = await getQuizzes({ courseId: currentCourse.id });
+    if (quizzes.length > 0) {
+      allItems.push({
+        type: "quiz",
+        id: quizzes[0].id,
+        title: quizzes[0].title,
+        timeLimit: quizzes[0].time_limit_min,
+        section: "الاختبار النهائي",
       });
-
-      document.getElementById("sidebarItems").innerHTML = html;
     }
 
-    function getItemIcon(type) {
-      const icons = {
-        lesson: "bi-file-text",
-        presentation: "bi-easel",
-        zoom: "bi-camera-video",
-        quiz: "bi-clipboard-check",
-      };
-      return icons[type] || "bi-file";
+    // ترتيب العناصر
+    const order = { lesson: 1, presentation: 2, zoom: 3, quiz: 4 };
+    allItems.sort((a, b) => (order[a.type] || 99) - (order[b.type] || 99));
+
+    await renderSidebar();
+    await updateProgress();
+
+    if (allItems.length > 0) {
+      await loadItem(allItems[0]);
+    } else {
+      document.getElementById("learnContent").innerHTML = `
+        <div class="text-center py-5">
+          <i class="bi bi-inbox fs-1 text-muted"></i>
+          <h4 class="fw-bold mt-3">لا يوجد محتوى بعد</h4>
+          <p class="text-muted">لم تتم إضافة دروس أو عروض لهذه الدورة.</p>
+        </div>`;
     }
+  }
 
-    function loadItemFromClick(e, type, id) {
-      e.preventDefault();
-      const item = allItems.find(i => i.type === type && i.id === id);
-      if (item) loadItem(item);
-    }
+  // ==========================================================
+  // Sidebar
+  // ==========================================================
+  async function renderSidebar() {
+    const grouped = {};
+    allItems.forEach(item => {
+      const sec = item.section || "المحتوى";
+      if (!grouped[sec]) grouped[sec] = [];
+      grouped[sec].push(item);
+    });
 
-    function loadItem(item) {
-      currentItem = item;
-      document.querySelectorAll(".lesson-nav-item").forEach(el => el.classList.remove("active"));
-      document.querySelectorAll(`.lesson-nav-item[data-type="${item.type}"][data-id="${item.id}"]`).forEach(el => el.classList.add("active"));
+    // جيب التقدم من Supabase
+    const progress = await getLessonProgress(currentUser.id, currentCourse.id);
+    const completedIds = new Set(progress.filter(p => p.completed).map(p => p.lesson_id));
 
-      const container = document.getElementById("learnContent");
-
-      if (item.type === "lesson") {
-        const isCompleted = isLessonComplete(currentUser.id, currentCourse.id, item.id);
-        container.innerHTML = `
-          <nav aria-label="breadcrumb" class="mb-3">
-            <ol class="breadcrumb small">
-              <li class="breadcrumb-item"><a href="course.html?slug=${currentCourse.slug}" class="text-decoration-none">${escapeHtml(currentCourse.title)}</a></li>
-              <li class="breadcrumb-item active">${escapeHtml(item.title)}</li>
-            </ol>
-          </nav>
-          <h2 class="h3 fw-bold mb-4">${escapeHtml(item.title)}</h2>
-          <div class="lesson-content mb-4">${item.content || "<p class='text-muted'>لا يوجد محتوى</p>"}</div>
-          <div class="d-flex justify-content-between align-items-center border-top pt-3">
-            <button class="btn ${isCompleted ? 'btn-outline-success' : 'btn-success'}" onclick="completeLesson()" ${isCompleted ? 'disabled' : ''}>
-              <i class="bi bi-check-circle${isCompleted ? '-fill' : ''}"></i>
-              ${isCompleted ? "تم إكمال الدرس" : "تم إكمال الدرس"}
-            </button>
-            <button class="btn btn-primary" onclick="goNext()">
-              التالي <i class="bi bi-arrow-left"></i>
-            </button>
-          </div>
+    let html = "";
+    Object.keys(grouped).forEach(secName => {
+      html += `<div class="section-title">${escapeHtml(secName)}</div>`;
+      grouped[secName].forEach(item => {
+        const icon = getItemIcon(item.type);
+        const isCompleted = item.type === "lesson" && completedIds.has(item.id);
+        html += `
+          <a href="#" class="lesson-nav-item ${isCompleted ? "completed" : ""}"
+             data-type="${item.type}" data-id="${item.id}"
+             onclick="loadItemFromClick(event, '${item.type}', ${item.id})">
+            <i class="bi ${icon}"></i>
+            <span class="flex-grow-1 small">${escapeHtml(item.title)}</span>
+            ${isCompleted ? '<i class="bi bi-check-circle-fill check"></i>' : ''}
+          </a>
         `;
-      } else if (item.type === "presentation") {
-        container.innerHTML = `
-          <h2 class="h3 fw-bold mb-4"><i class="bi bi-easel text-primary"></i> ${escapeHtml(item.title)}</h2>
-          <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-            <i class="bi bi-file-earmark-${item.fileType === 'pdf' ? 'pdf' : 'ppt'} text-primary" style="font-size: 5rem;"></i>
-            <h4 class="mt-3">${escapeHtml(item.title)}</h4>
-            <p class="text-muted">النوع: ${item.fileType.toUpperCase()} | الحجم: ${formatFileSize(item.fileSize || 0)}</p>
-            <button class="btn btn-primary btn-lg mt-3" onclick="openPresentation(${item.id})">
-              <i class="bi bi-box-arrow-up-right"></i> فتح العرض
-            </button>
-          </div>
-        `;
-      } else if (item.type === "zoom") {
-        const dateStr = item.date ? new Date(item.date).toLocaleString("ar-EG") : "";
-        container.innerHTML = `
-          <h2 class="h3 fw-bold mb-4"><i class="bi bi-camera-video text-danger"></i> ${escapeHtml(item.title)}</h2>
-          <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-            <i class="bi bi-camera-video text-danger" style="font-size: 5rem;"></i>
-            <h4 class="mt-3">جلسة مباشرة</h4>
-            ${dateStr ? `<p class="text-muted">الموعد: ${dateStr}</p>` : ""}
-            <a href="${escapeHtml(item.url)}" target="_blank" class="btn btn-danger btn-lg mt-3">
-              <i class="bi bi-box-arrow-up-right"></i> انضم للجلسة
-            </a>
-          </div>
-        `;
-      } else if (item.type === "quiz") {
-        const attempts = getAttemptsByUser(currentUser.id).filter(a => a.quiz_id === item.id);
-        const bestScore = attempts.length > 0 ? Math.max(...attempts.map(a => a.total_points > 0 ? Math.round((a.score / a.total_points) * 100) : 0)) : null;
-        container.innerHTML = `
-          <h2 class="h3 fw-bold mb-4"><i class="bi bi-clipboard-check text-success"></i> ${escapeHtml(item.title)}</h2>
-          <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-            <i class="bi bi-clipboard-check text-success" style="font-size: 5rem;"></i>
-            <h4 class="mt-3">${escapeHtml(item.title)}</h4>
-            <div class="d-flex justify-content-center gap-4 my-3">
-              <div><strong class="fs-4">${item.questions}</strong><br><small class="text-muted">سؤال</small></div>
-              <div><strong class="fs-4">${item.timeLimit}</strong><br><small class="text-muted">دقيقة</small></div>
-              ${bestScore !== null ? `<div><strong class="fs-4 text-success">${bestScore}%</strong><br><small class="text-muted">أفضل نتيجة</small></div>` : ""}
+      });
+    });
+
+    document.getElementById("sidebarItems").innerHTML = html;
+  }
+
+  function getItemIcon(type) {
+    const icons = {
+      lesson: "bi-file-text",
+      presentation: "bi-easel",
+      zoom: "bi-camera-video",
+      quiz: "bi-clipboard-check",
+    };
+    return icons[type] || "bi-file";
+  }
+
+  function loadItemFromClick(e, type, id) {
+    e.preventDefault();
+    const item = allItems.find(i => i.type === type && i.id === id);
+    if (item) loadItem(item);
+  }
+
+  // ==========================================================
+  // Load Item
+  // ==========================================================
+  async function loadItem(item) {
+    currentItem = item;
+    document.querySelectorAll(".lesson-nav-item").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(`.lesson-nav-item[data-type="${item.type}"][data-id="${item.id}"]`)
+      .forEach(el => el.classList.add("active"));
+
+    const container = document.getElementById("learnContent");
+
+    // ---------- درس ----------
+    if (item.type === "lesson") {
+      const isCompleted = await isLessonComplete(currentUser.id, currentCourse.id, item.id);
+      container.innerHTML = `
+        <nav aria-label="breadcrumb" class="mb-3">
+          <ol class="breadcrumb small">
+            <li class="breadcrumb-item">
+              <a href="course.html?slug=${currentCourse.slug}" class="text-decoration-none">
+                ${escapeHtml(currentCourse.title)}
+              </a>
+            </li>
+            <li class="breadcrumb-item active">${escapeHtml(item.title)}</li>
+          </ol>
+        </nav>
+        <h2 class="h3 fw-bold mb-4">${escapeHtml(item.title)}</h2>
+        <div class="lesson-content mb-4">${item.content || "<p class='text-muted'>لا يوجد محتوى</p>"}</div>
+        <div class="d-flex justify-content-between align-items-center border-top pt-3">
+          <button class="btn ${isCompleted ? 'btn-outline-success' : 'btn-success'}"
+                  onclick="completeLesson()" ${isCompleted ? 'disabled' : ''}>
+            <i class="bi bi-check-circle${isCompleted ? '-fill' : ''}"></i>
+            ${isCompleted ? "تم إكمال الدرس" : "تم إكمال الدرس"}
+          </button>
+          <button class="btn btn-primary" onclick="goNext()">
+            التالي <i class="bi bi-arrow-left"></i>
+          </button>
+        </div>
+      `;
+    }
+    // ---------- عرض ----------
+    else if (item.type === "presentation") {
+      const icon = item.fileType === "pdf"
+        ? "bi-file-earmark-pdf text-danger"
+        : "bi-file-earmark-ppt text-warning";
+      container.innerHTML = `
+        <h2 class="h3 fw-bold mb-4"><i class="bi bi-easel text-primary"></i> ${escapeHtml(item.title)}</h2>
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+          <i class="bi ${icon}" style="font-size: 5rem;"></i>
+          <h4 class="mt-3">${escapeHtml(item.title)}</h4>
+          <p class="text-muted">
+            النوع: ${(item.fileType || "pdf").toUpperCase()} |
+            الحجم: ${formatFileSize(item.fileSize || 0)}
+          </p>
+          <a href="${item.fileUrl}" target="_blank" class="btn btn-primary btn-lg mt-3">
+            <i class="bi bi-box-arrow-up-right"></i> فتح العرض
+          </a>
+        </div>
+      `;
+    }
+    // ---------- Zoom ----------
+    else if (item.type === "zoom") {
+      const dateStr = item.date ? new Date(item.date).toLocaleString("ar-EG") : "";
+      container.innerHTML = `
+        <h2 class="h3 fw-bold mb-4"><i class="bi bi-camera-video text-danger"></i> ${escapeHtml(item.title)}</h2>
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+          <i class="bi bi-camera-video text-danger" style="font-size: 5rem;"></i>
+          <h4 class="mt-3">جلسة مباشرة</h4>
+          ${dateStr ? `<p class="text-muted">الموعد: ${dateStr}</p>` : ""}
+          <a href="${escapeHtml(item.url)}" target="_blank" class="btn btn-danger btn-lg mt-3">
+            <i class="bi bi-box-arrow-up-right"></i> انضم للجلسة
+          </a>
+        </div>
+      `;
+    }
+    // ---------- اختبار ----------
+    else if (item.type === "quiz") {
+      const attempts = await getAttemptsByUser(currentUser.id);
+      const quizAttempts = attempts.filter(a => a.quiz_id === item.id);
+      const bestScore = quizAttempts.length > 0
+        ? Math.max(...quizAttempts.map(a => a.total_points > 0
+            ? Math.round((a.score / a.total_points) * 100) : 0))
+        : null;
+
+      container.innerHTML = `
+        <h2 class="h3 fw-bold mb-4">
+          <i class="bi bi-clipboard-check text-success"></i> ${escapeHtml(item.title)}
+        </h2>
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+          <i class="bi bi-clipboard-check text-success" style="font-size: 5rem;"></i>
+          <h4 class="mt-3">${escapeHtml(item.title)}</h4>
+          <div class="d-flex justify-content-center gap-4 my-3">
+            <div>
+              <strong class="fs-4">${item.timeLimit}</strong><br>
+              <small class="text-muted">دقيقة</small>
             </div>
-            <a href="quiz.html?id=${item.id}" class="btn btn-success btn-lg mt-3">
-              <i class="bi bi-play-circle"></i> ${attempts.length > 0 ? "إعادة الاختبار" : "ابدأ الاختبار"}
-            </a>
+            ${bestScore !== null
+              ? `<div>
+                   <strong class="fs-4 text-success">${bestScore}%</strong><br>
+                   <small class="text-muted">أفضل نتيجة</small>
+                 </div>`
+              : ""}
           </div>
-        `;
-      }
+          <a href="quiz.html?id=${item.id}" class="btn btn-success btn-lg mt-3">
+            <i class="bi bi-play-circle"></i>
+            ${quizAttempts.length > 0 ? "إعادة الاختبار" : "ابدأ الاختبار"}
+          </a>
+        </div>
+      `;
+    }
+  }
+
+  // ==========================================================
+  // Actions
+  // ==========================================================
+  async function completeLesson() {
+    if (!currentItem || currentItem.type !== "lesson") return;
+
+    const { error } = await markLessonComplete(currentUser.id, currentCourse.id, currentItem.id);
+    if (error) {
+      alert("خطأ: " + error);
+      return;
     }
 
-    function completeLesson() {
-      if (!currentItem || currentItem.type !== "lesson") return;
-      markLessonComplete(currentUser.id, currentCourse.id, currentItem.id);
-      renderSidebar();
-      updateProgress();
-      loadItem(currentItem);
-    }
+    await renderSidebar();
+    await updateProgress();
+    await loadItem(currentItem);
+  }
 
-    function updateProgress() {
-      const lessons = allItems.filter(i => i.type === "lesson");
-      const completed = lessons.filter(l => isLessonComplete(currentUser.id, currentCourse.id, l.id)).length;
-      const pct = lessons.length > 0 ? Math.round((completed / lessons.length) * 100) : 0;
-      document.getElementById("progressPct").textContent = pct + "%";
-      document.getElementById("progressBar").style.width = pct + "%";
-    }
+  async function updateProgress() {
+    const lessons = allItems.filter(i => i.type === "lesson");
+    const progress = await getLessonProgress(currentUser.id, currentCourse.id);
+    const completedCount = progress.filter(p => p.completed).length;
+    const pct = lessons.length > 0 ? Math.round((completedCount / lessons.length) * 100) : 0;
 
-    function goNext() {
-      const idx = allItems.findIndex(i => i.type === currentItem.type && i.id === currentItem.id);
-      if (idx >= 0 && idx < allItems.length - 1) {
-        loadItem(allItems[idx + 1]);
-      }
-    }
+    document.getElementById("progressPct").textContent = pct + "%";
+    document.getElementById("progressBar").style.width = pct + "%";
+  }
 
-    document.addEventListener("DOMContentLoaded", initLearn);
-  </script>
+  function goNext() {
+    const idx = allItems.findIndex(i => i.type === currentItem.type && i.id === currentItem.id);
+    if (idx >= 0 && idx < allItems.length - 1) {
+      loadItem(allItems[idx + 1]);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", initLearn);
+</script>
 </body>
 </html>
