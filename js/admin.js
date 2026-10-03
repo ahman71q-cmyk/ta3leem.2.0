@@ -1,45 +1,6 @@
 /* ==========================================================
-   Ta3leem — Admin Panel (Full)
+   Ta3leem — Admin Panel (Supabase)
    ========================================================== */
-
-const ADMIN_COURSES_KEY = "ta3leem_admin_courses";
-const ADMIN_LESSONS_KEY = "ta3leem_admin_lessons";
-const ADMIN_QUIZZES_KEY = "ta3leem_admin_quizzes";
-
-// ==========================================================
-// التخزين
-// ==========================================================
-function getAdminCourses() {
-  try {
-    const raw = localStorage.getItem(ADMIN_COURSES_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [...LOCAL_COURSES];
-}
-function saveAdminCourses(c) { localStorage.setItem(ADMIN_COURSES_KEY, JSON.stringify(c)); }
-
-function getAdminLessons() {
-  try {
-    const raw = localStorage.getItem(ADMIN_LESSONS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  const lessons = [];
-  LOCAL_COURSES.forEach((c) => {
-    (c.sections || []).forEach((s) => {
-      (s.lessons || []).forEach((l) => {
-        lessons.push({ ...l, course_id: c.id, course_title: c.title, section_title: s.title });
-      });
-    });
-  });
-  return lessons;
-}
-function saveAdminLessons(l) { localStorage.setItem(ADMIN_LESSONS_KEY, JSON.stringify(l)); }
-
-function getAdminQuizzes() {
-  try { return JSON.parse(localStorage.getItem(ADMIN_QUIZZES_KEY) || "[]"); }
-  catch { return []; }
-}
-function saveAdminQuizzes(q) { localStorage.setItem(ADMIN_QUIZZES_KEY, JSON.stringify(q)); }
 
 // ==========================================================
 // Tabs
@@ -64,45 +25,40 @@ function showTab(name, e) {
 }
 
 // ==========================================================
-// Dashboard
+// 1. Dashboard
 // ==========================================================
-function renderDashboard() {
-  const courses = getAdminCourses();
-  const lessons = getAdminLessons();
-  const quizzes = getAdminQuizzes();
-  const users = getUsers();
-  const enrolls = JSON.parse(localStorage.getItem("ta3leem_enrollments") || "[]");
-  const presentations = getAllPresentations();
-  const zooms = getAllZoomLinks();
+async function renderDashboard() {
+  const courses = await getCourses({ limit: 999 });
+  const lessons = await sb.from("lessons").select("id");
+  const quizzes = await getQuizzes();
+  const users = await getUsers();
+  const presentations = await getAllPresentations();
+  const zooms = await getAllZoomLinks();
+  const enrolls = await sb.from("enrollments").select("id");
 
   document.getElementById("statTotalCourses").textContent = courses.length;
-  document.getElementById("statTotalLessons").textContent = lessons.length;
+  document.getElementById("statTotalLessons").textContent = lessons.data?.length || 0;
   document.getElementById("statTotalUsers").textContent = users.length;
   document.getElementById("statTotalQuizzes").textContent = quizzes.length;
 
   const totalStudents = users.filter((u) => u.role === "student").length;
   const totalAdmins = users.filter((u) => u.role === "admin").length;
-  const totalEnrollments = enrolls.length;
+  const totalEnrollments = enrolls.data?.length || 0;
 
   const avgRating = courses.length
     ? (courses.reduce((s, c) => s + (c.rating_avg || 0), 0) / courses.length).toFixed(1)
     : "0.0";
 
-  const recentUsers = [...users]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 5);
-
-  const recentCourses = [...courses].slice(-3).reverse();
+  const recentUsers = users.slice(0, 5);
+  const recentCourses = courses.slice(-3).reverse();
 
   const students = users.filter((u) => u.role === "student");
-
   const prep1 = students.filter((u) => u.grade === "prep1").length;
   const prep2 = students.filter((u) => u.grade === "prep2").length;
   const prep3 = students.filter((u) => u.grade === "prep3").length;
   const sec1 = students.filter((u) => u.grade === "sec1").length;
   const sec2 = students.filter((u) => u.grade === "sec2").length;
   const sec3 = students.filter((u) => u.grade === "sec3").length;
-
   const totalPrep = prep1 + prep2 + prep3;
   const totalSec = sec1 + sec2 + sec3;
 
@@ -111,7 +67,7 @@ function renderDashboard() {
       <div class="stat-card">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="icon bg-primary-subtle text-primary"><i class="bi bi-people"></i></div>
-          <div><div class="fs-3 fw-bold">${totalStudents}</div><small class="text-muted">طالب مسجّل</small></div>
+          <div><div class="fs-3 fw-bold">${totalStudents}</div><small class="text-muted">طالب</small></div>
         </div>
       </div>
     </div>
@@ -127,7 +83,7 @@ function renderDashboard() {
       <div class="stat-card">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="icon bg-info-subtle text-info"><i class="bi bi-person-check"></i></div>
-          <div><div class="fs-3 fw-bold">${totalEnrollments}</div><small class="text-muted">تسجيل في دورات</small></div>
+          <div><div class="fs-3 fw-bold">${totalEnrollments}</div><small class="text-muted">تسجيل</small></div>
         </div>
       </div>
     </div>
@@ -143,7 +99,7 @@ function renderDashboard() {
       <div class="stat-card">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="icon bg-danger-subtle text-danger"><i class="bi bi-camera-video"></i></div>
-          <div><div class="fs-3 fw-bold">${zooms.length}</div><small class="text-muted">بث مباشر</small></div>
+          <div><div class="fs-3 fw-bold">${zooms.length}</div><small class="text-muted">بث</small></div>
         </div>
       </div>
     </div>
@@ -151,7 +107,7 @@ function renderDashboard() {
       <div class="stat-card">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="icon bg-warning-subtle text-warning"><i class="bi bi-star"></i></div>
-          <div><div class="fs-3 fw-bold">${avgRating}</div><small class="text-muted">متوسط التقييم</small></div>
+          <div><div class="fs-3 fw-bold">${avgRating}</div><small class="text-muted">متوسط</small></div>
         </div>
       </div>
     </div>
@@ -159,18 +115,12 @@ function renderDashboard() {
     <div class="col-md-6">
       <div class="stat-card">
         <div class="card-body">
-          <h6 class="fw-bold mb-3"><i class="bi bi-mortarboard text-primary"></i> توزيع الطلاب حسب المرحلة</h6>
-          <div class="d-flex justify-content-between mb-2">
-            <span>المرحلة الإعدادية</span>
-            <strong>${totalPrep} طالب</strong>
-          </div>
+          <h6 class="fw-bold mb-3"><i class="bi bi-mortarboard text-primary"></i> توزيع الطلاب</h6>
+          <div class="d-flex justify-content-between mb-2"><span>إعدادي</span><strong>${totalPrep}</strong></div>
           <div class="progress mb-3" style="height: 8px;">
             <div class="progress-bar bg-primary" style="width: ${students.length ? (totalPrep / students.length) * 100 : 0}%"></div>
           </div>
-          <div class="d-flex justify-content-between mb-2">
-            <span>المرحلة الثانوية</span>
-            <strong>${totalSec} طالب</strong>
-          </div>
+          <div class="d-flex justify-content-between mb-2"><span>ثانوي</span><strong>${totalSec}</strong></div>
           <div class="progress" style="height: 8px;">
             <div class="progress-bar bg-success" style="width: ${students.length ? (totalSec / students.length) * 100 : 0}%"></div>
           </div>
@@ -201,7 +151,7 @@ function renderDashboard() {
           <img src="${c.thumbnail_url || 'https://via.placeholder.com/60'}" style="width:60px;height:40px;object-fit:cover;border-radius:6px;">
           <div class="flex-grow-1">
             <strong>${escapeHtml(c.title)}</strong>
-            <div class="small text-muted">${c.category?.name_ar || ""} — ${c.duration_hours || 0} ساعة</div>
+            <div class="small text-muted">${c.duration_hours || 0} ساعة</div>
           </div>
         </div>
       `).join("")
@@ -211,7 +161,7 @@ function renderDashboard() {
     ? recentUsers.map((u) => `
         <tr>
           <td><strong>${escapeHtml(u.full_name || "—")}</strong></td>
-          <td>${escapeHtml(u.email)}</td>
+          <td>${escapeHtml(u.email || "—")}</td>
           <td><span class="badge bg-primary-subtle text-primary">${u.role === "admin" ? "مشرف" : "طالب"}</span></td>
           <td class="text-muted small">${new Date(u.created_at).toLocaleDateString("ar-EG")}</td>
         </tr>
@@ -220,10 +170,10 @@ function renderDashboard() {
 }
 
 // ==========================================================
-// Courses
+// 2. Courses
 // ==========================================================
-function renderCourses() {
-  const courses = getAdminCourses();
+async function renderCourses() {
+  const courses = await getCourses({ limit: 999 });
   const tbody = document.getElementById("coursesTableBody");
   if (courses.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">لا توجد دورات</td></tr>`;
@@ -236,7 +186,7 @@ function renderCourses() {
       <td><strong>${escapeHtml(c.title)}</strong></td>
       <td>${c.category?.name_ar || "—"}</td>
       <td>${levelNames[c.level] || c.level}</td>
-      <td class="text-center">${(c.sections || []).reduce((s, sec) => s + (sec.lessons?.length || 0), 0)}</td>
+      <td class="text-center">—</td>
       <td class="text-center">
         <button class="btn btn-sm btn-outline-primary me-1" onclick="editCourse(${c.id})"><i class="bi bi-pencil"></i></button>
         <button class="btn btn-sm btn-outline-danger" onclick="deleteCourse(${c.id})"><i class="bi bi-trash"></i></button>
@@ -253,11 +203,11 @@ function openCourseModal() {
   new bootstrap.Modal(document.getElementById("courseModal")).show();
 }
 
-function editCourse(id) {
-  const c = getAdminCourses().find((x) => x.id === id);
+async function editCourse(id) {
+  const { data: c } = await sb.from("courses").select("*").eq("id", id).single();
   if (!c) return;
   document.getElementById("courseModalTitle").textContent = "تعديل دورة";
-  loadCategoriesIntoSelect("courseCategory", c.category_id);
+  await loadCategoriesIntoSelect("courseCategory", c.category_id);
   document.getElementById("courseId").value = c.id;
   document.getElementById("courseTitle").value = c.title;
   document.getElementById("courseLevel").value = c.level;
@@ -268,17 +218,14 @@ function editCourse(id) {
   new bootstrap.Modal(document.getElementById("courseModal")).show();
 }
 
-function saveCourse(e) {
+async function saveCourse(e) {
   e.preventDefault();
   const id = document.getElementById("courseId").value;
-  const catId = Number(document.getElementById("courseCategory").value);
-  const cat = LOCAL_CATEGORIES.find((c) => c.id === catId);
 
   const data = {
     title: document.getElementById("courseTitle").value.trim(),
     level: document.getElementById("courseLevel").value,
-    category_id: catId,
-    category: cat ? { name_ar: cat.name_ar, icon: cat.icon } : null,
+    category_id: Number(document.getElementById("courseCategory").value),
     duration_hours: Number(document.getElementById("courseDuration").value) || 10,
     students_count: Number(document.getElementById("courseStudentsCount").value) || 0,
     thumbnail_url: document.getElementById("courseThumbnail").value.trim() ||
@@ -286,51 +233,54 @@ function saveCourse(e) {
     description: document.getElementById("courseDescription").value.trim(),
   };
 
-  let courses = getAdminCourses();
-
   if (id) {
-    courses = courses.map((c) => (c.id === Number(id) ? { ...c, ...data } : c));
+    const { error } = await sb.from("courses").update(data).eq("id", Number(id));
+    if (error) return alert("❌ " + error.message);
   } else {
-    const newId = Math.max(...courses.map((c) => c.id), 0) + 1;
-    const slug = data.title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w\-]/g, "") + "-" + newId;
-    courses.push({ id: newId, slug, ...data, rating_avg: 5.0, rating_count: 0, sections: [] });
+    const slug = data.title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w\-]/g, "") + "-" + Date.now();
+    const { error } = await sb.from("courses").insert({ ...data, slug, status: "published" });
+    if (error) return alert("❌ " + error.message);
   }
 
-  saveAdminCourses(courses);
   bootstrap.Modal.getInstance(document.getElementById("courseModal")).hide();
   renderCourses();
   renderDashboard();
-  alert("✅ تم الحفظ بنجاح");
+  alert("✅ تم الحفظ");
 }
 
-function deleteCourse(id) {
-  if (!confirm("هل أنت متأكد من حذف الدورة؟")) return;
-  saveAdminCourses(getAdminCourses().filter((c) => c.id !== id));
+async function deleteCourse(id) {
+  if (!confirm("حذف الدورة؟")) return;
+  const { error } = await sb.from("courses").delete().eq("id", id);
+  if (error) return alert("❌ " + error.message);
   renderCourses();
   renderDashboard();
 }
 
-function loadCategoriesIntoSelect(selectId, selected = null) {
+async function loadCategoriesIntoSelect(selectId, selected = null) {
+  const cats = await getCategories();
   const select = document.getElementById(selectId);
-  select.innerHTML = LOCAL_CATEGORIES.map((c) =>
+  select.innerHTML = cats.map((c) =>
     `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${c.name_ar}</option>`
   ).join("");
 }
 
 // ==========================================================
-// Lessons
+// 3. Lessons
 // ==========================================================
-function renderLessons() {
-  const lessons = getAdminLessons();
+async function renderLessons() {
+  const { data: lessons } = await sb
+    .from("lessons")
+    .select(`id, title, type, duration_min, section:sections(id, title, course:courses(id, title))`);
+
   const tbody = document.getElementById("lessonsTableBody");
-  if (lessons.length === 0) {
+  if (!lessons || lessons.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">لا توجد دروس</td></tr>`;
     return;
   }
   tbody.innerHTML = lessons.map((l) => `
     <tr>
       <td><strong>${escapeHtml(l.title)}</strong></td>
-      <td>${escapeHtml(l.course_title || "—")}</td>
+      <td>${escapeHtml(l.section?.course?.title || "—")}</td>
       <td>${l.type === "article" ? "نصي" : l.type === "video" ? "فيديو" : "مباشر"}</td>
       <td>${l.duration_min || 0} د</td>
       <td class="text-center">
@@ -341,155 +291,123 @@ function renderLessons() {
   `).join("");
 }
 
-function openLessonModal() {
+async function openLessonModal() {
   document.getElementById("lessonModalTitle").textContent = "إضافة درس";
   document.getElementById("lessonForm").reset();
   document.getElementById("lessonId").value = "";
-  loadCoursesIntoLessonSelect();
-  updateSectionsSelect();
+  await loadCoursesIntoLessonSelect();
   new bootstrap.Modal(document.getElementById("lessonModal")).show();
 }
 
-function editLesson(id) {
-  const l = getAdminLessons().find((x) => x.id === id);
+async function editLesson(id) {
+  const { data: l } = await sb.from("lessons").select("*").eq("id", id).single();
   if (!l) return;
   document.getElementById("lessonModalTitle").textContent = "تعديل درس";
   document.getElementById("lessonId").value = l.id;
   document.getElementById("lessonTitle").value = l.title;
   document.getElementById("lessonDuration").value = l.duration_min || 10;
   document.getElementById("lessonContent").value = l.content || "";
-  loadCoursesIntoLessonSelect(l.course_id);
-  updateSectionsSelect(l.section_title);
+  await loadCoursesIntoLessonSelect(l.section_id);
   new bootstrap.Modal(document.getElementById("lessonModal")).show();
 }
 
-function loadCoursesIntoLessonSelect(selected = null) {
+async function loadCoursesIntoLessonSelect(selectedSectionId = null) {
+  const { data: sections } = await sb
+    .from("sections")
+    .select(`id, title, course:courses(id, title)`)
+    .order("position");
+
   const select = document.getElementById("lessonCourse");
-  const courses = getAdminCourses();
-  select.innerHTML = courses.map((c) =>
-    `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${c.title}</option>`
-  ).join("");
-  select.onchange = updateSectionsSelect;
-}
-
-function updateSectionsSelect(selectedTitle = null) {
-  const courseId = Number(document.getElementById("lessonCourse").value);
-  const course = getAdminCourses().find((c) => c.id === courseId);
-  const select = document.getElementById("lessonSection");
-  if (!course || !course.sections || course.sections.length === 0) {
-    select.innerHTML = `<option value="">— لا توجد أقسام —</option>`;
-    return;
-  }
-  select.innerHTML = course.sections.map((s) =>
-    `<option value="${s.id}" ${s.title === selectedTitle ? "selected" : ""}>${s.title}</option>`
+  select.innerHTML = (sections || []).map((s) =>
+    `<option value="${s.id}" ${s.id === selectedSectionId ? "selected" : ""}>${escapeHtml(s.course?.title || "—")} → ${escapeHtml(s.title)}</option>`
   ).join("");
 }
 
-function saveLesson(e) {
+async function saveLesson(e) {
   e.preventDefault();
   const id = document.getElementById("lessonId").value;
-  const courseId = Number(document.getElementById("lessonCourse").value);
-  const course = getAdminCourses().find((c) => c.id === courseId);
+  const sectionId = Number(document.getElementById("lessonCourse").value);
 
   const data = {
+    section_id: sectionId,
     title: document.getElementById("lessonTitle").value.trim(),
     duration_min: Number(document.getElementById("lessonDuration").value) || 10,
     content: document.getElementById("lessonContent").value,
     type: "article",
   };
 
-  let lessons = getAdminLessons();
-
   if (id) {
-    lessons = lessons.map((l) => (l.id === Number(id) ? { ...l, ...data } : l));
+    const { error } = await sb.from("lessons").update(data).eq("id", Number(id));
+    if (error) return alert("❌ " + error.message);
   } else {
-    const newId = Math.max(...lessons.map((l) => l.id), 0) + 1;
-    lessons.push({
-      id: newId, ...data,
-      course_id: courseId,
-      course_title: course?.title || "",
-      section_title: course?.sections?.[0]?.title || "الدروس",
-    });
+    const { error } = await sb.from("lessons").insert(data);
+    if (error) return alert("❌ " + error.message);
   }
 
-  saveAdminLessons(lessons);
   bootstrap.Modal.getInstance(document.getElementById("lessonModal")).hide();
   renderLessons();
   renderDashboard();
-  alert("✅ تم الحفظ بنجاح");
+  alert("✅ تم الحفظ");
 }
 
-function deleteLesson(id) {
-  if (!confirm("هل أنت متأكد من حذف الدرس؟")) return;
-  saveAdminLessons(getAdminLessons().filter((l) => l.id !== id));
+async function deleteLesson(id) {
+  if (!confirm("حذف الدرس؟")) return;
+  const { error } = await sb.from("lessons").delete().eq("id", id);
+  if (error) return alert("❌ " + error.message);
   renderLessons();
   renderDashboard();
 }
 
 // ==========================================================
-// Presentations (العروض)
+// 4. Presentations
 // ==========================================================
-function renderPresentations() {
-  const pres = getAllPresentations();
+async function renderPresentations() {
+  const pres = await getAllPresentations();
   const tbody = document.getElementById("presentationsTableBody");
   if (pres.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">لا توجد عروض. أضف أول عرض.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">لا توجد عروض</td></tr>`;
     return;
   }
-  tbody.innerHTML = pres.map((p) => {
-    const course = getAdminCourses().find(c => c.id === p.course_id);
-    return `
-      <tr>
-        <td><strong>${escapeHtml(p.title)}</strong></td>
-        <td>${escapeHtml(course?.title || "—")}</td>
-        <td><span class="badge bg-primary-subtle text-primary">${p.file_type.toUpperCase()}</span></td>
-        <td class="small">${formatFileSize(p.file_size || 0)}</td>
-        <td class="text-center">
-          <button class="btn btn-sm btn-outline-success me-1" onclick="openPresentation(${p.id})"><i class="bi bi-eye"></i></button>
-          <button class="btn btn-sm btn-outline-danger" onclick="deletePresentationAdmin(${p.id})"><i class="bi bi-trash"></i></button>
-        </td>
-      </tr>
-    `;
-  }).join("");
+  tbody.innerHTML = pres.map((p) => `
+    <tr>
+      <td><strong>${escapeHtml(p.title)}</strong></td>
+      <td>${escapeHtml(p.course?.title || "—")}</td>
+      <td><span class="badge bg-primary-subtle text-primary">${(p.file_type || "pdf").toUpperCase()}</span></td>
+      <td class="small">${formatFileSize(p.file_size || 0)}</td>
+      <td class="text-center">
+        <a href="${p.file_url}" target="_blank" class="btn btn-sm btn-outline-success me-1"><i class="bi bi-eye"></i></a>
+        <button class="btn btn-sm btn-outline-danger" onclick="deletePresentationAdmin(${p.id})"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>
+  `).join("");
 }
 
-function openPresentationModal() {
+async function openPresentationModal() {
   document.getElementById("presentationModalTitle").textContent = "إضافة عرض";
   document.getElementById("presentationForm").reset();
   document.getElementById("presentationId").value = "";
-  loadCoursesIntoPresentationSelect();
+  await loadCoursesIntoPresentationSelect();
   new bootstrap.Modal(document.getElementById("presentationModal")).show();
 }
 
-function loadCoursesIntoPresentationSelect(selected = null) {
+async function loadCoursesIntoPresentationSelect(selected = null) {
+  const courses = await getCourses({ limit: 999 });
   const select = document.getElementById("presentationCourse");
-  const courses = getAdminCourses();
   select.innerHTML = courses.map((c) =>
     `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${c.title}</option>`
   ).join("");
 }
 
-function submitPresentationForm() {
-  const form = document.getElementById("presentationForm");
-  if (!form) return;
-  const evt = new Event("submit", { cancelable: true, bubbles: true });
-  form.dispatchEvent(evt);
-}
-
 async function savePresentation(e) {
   if (e) e.preventDefault();
-  console.log("🚀 savePresentation بدأت");
 
   const title = document.getElementById("presentationTitle").value.trim();
   const courseId = Number(document.getElementById("presentationCourse").value);
   const desc = document.getElementById("presentationDesc").value.trim();
-  const fileInput = document.getElementById("presentationFile");
-  const file = fileInput.files[0];
+  const file = document.getElementById("presentationFile").files[0];
 
-  console.log("📄 الملف:", file ? file.name : "مفيش");
-
-  if (!title) { alert("⚠️ اكتب عنوان العرض"); return; }
-  if (!file) { alert("⚠️ اختر ملف"); return; }
+  if (!title) return alert("⚠️ اكتب عنوان العرض");
+  if (!file) return alert("⚠️ اختر ملف");
 
   const submitBtn = document.querySelector('#presentationModal .modal-footer button.btn-primary');
   if (submitBtn) {
@@ -498,26 +416,29 @@ async function savePresentation(e) {
   }
 
   try {
-    const base64 = await fileToBase64(file);
+    const { url, error } = await uploadFile(file, `course-${courseId}`);
+    if (error) throw new Error(error);
+
     const ext = file.name.split(".").pop().toLowerCase();
     const fileType = ext === "pdf" ? "pdf" : ext === "pptx" ? "pptx" : "ppt";
 
-    createPresentation({
+    const { error: dbErr } = await sb.from("presentations").insert({
       course_id: courseId,
       title,
       description: desc,
-      fileBase64: base64,
-      fileName: file.name,
-      fileType,
-      fileSize: file.size,
+      file_url: url,
+      file_name: file.name,
+      file_type: fileType,
+      file_size: file.size,
     });
+
+    if (dbErr) throw dbErr;
 
     bootstrap.Modal.getInstance(document.getElementById("presentationModal")).hide();
     renderPresentations();
     renderDashboard();
-    alert("✅ تم رفع العرض بنجاح");
+    alert("✅ تم رفع العرض");
   } catch (err) {
-    console.error("❌ خطأ:", err);
     alert("❌ " + err.message);
   } finally {
     if (submitBtn) {
@@ -527,95 +448,82 @@ async function savePresentation(e) {
   }
 }
 
-function deletePresentationAdmin(id) {
-  if (!confirm("هل أنت متأكد من حذف العرض؟")) return;
-  deletePresentation(id);
+function submitPresentationForm() {
+  const form = document.getElementById("presentationForm");
+  if (!form) return;
+  const evt = new Event("submit", { cancelable: true, bubbles: true });
+  form.dispatchEvent(evt);
+}
+
+async function deletePresentationAdmin(id) {
+  if (!confirm("حذف العرض؟")) return;
+  const { error } = await sb.from("presentations").delete().eq("id", id);
+  if (error) return alert("❌ " + error.message);
   renderPresentations();
   renderDashboard();
 }
 
 // ==========================================================
-// Zoom Links
+// 5. Zoom
 // ==========================================================
-function renderZoom() {
-  const zooms = getAllZoomLinks();
+async function renderZoom() {
+  const zooms = await getAllZoomLinks();
   const tbody = document.getElementById("zoomTableBody");
   if (zooms.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">لا توجد روابط.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">لا توجد روابط</td></tr>`;
     return;
   }
-  tbody.innerHTML = zooms.map((z) => {
-    const course = getAdminCourses().find(c => c.id === z.course_id);
-    return `
-      <tr>
-        <td><strong>${escapeHtml(z.title)}</strong></td>
-        <td>${escapeHtml(course?.title || "—")}</td>
-        <td>
-          <a href="${escapeHtml(z.url)}" target="_blank" class="text-primary small">
-            <i class="bi bi-link-45deg"></i> فتح
-          </a>
-        </td>
-        <td class="small">${z.date ? new Date(z.date).toLocaleString("ar-EG") : "—"}</td>
-        <td class="text-center">
-          <button class="btn btn-sm btn-outline-danger" onclick="deleteZoomAdmin(${z.id})"><i class="bi bi-trash"></i></button>
-        </td>
-      </tr>
-    `;
-  }).join("");
+  tbody.innerHTML = zooms.map((z) => `
+    <tr>
+      <td><strong>${escapeHtml(z.title)}</strong></td>
+      <td>${escapeHtml(z.course?.title || "—")}</td>
+      <td><a href="${escapeHtml(z.url)}" target="_blank" class="text-primary small"><i class="bi bi-link-45deg"></i> فتح</a></td>
+      <td class="small">${z.date ? new Date(z.date).toLocaleString("ar-EG") : "—"}</td>
+      <td class="text-center">
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteZoomAdmin(${z.id})"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>
+  `).join("");
 }
 
-function openZoomModal() {
+async function openZoomModal() {
   document.getElementById("zoomModalTitle").textContent = "إضافة رابط Zoom";
   document.getElementById("zoomForm").reset();
   document.getElementById("zoomId").value = "";
-  loadCoursesIntoZoomSelect();
+  const courses = await getCourses({ limit: 999 });
+  const select = document.getElementById("zoomCourse");
+  select.innerHTML = courses.map((c) => `<option value="${c.id}">${c.title}</option>`).join("");
   new bootstrap.Modal(document.getElementById("zoomModal")).show();
 }
 
-function loadCoursesIntoZoomSelect(selected = null) {
-  const select = document.getElementById("zoomCourse");
-  const courses = getAdminCourses();
-  select.innerHTML = courses.map((c) =>
-    `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${c.title}</option>`
-  ).join("");
-}
-
-function saveZoom(e) {
+async function saveZoom(e) {
   e.preventDefault();
-  const title = document.getElementById("zoomTitle").value.trim();
-  const courseId = Number(document.getElementById("zoomCourse").value);
-  const url = document.getElementById("zoomUrl").value.trim();
-  const date = document.getElementById("zoomDate").value;
-
-  const all = getAllZoomLinks();
-  const newId = all.length > 0 ? Math.max(...all.map(z => z.id)) + 1 : 1;
-  all.push({
-    id: newId,
-    course_id: courseId,
-    title, url,
-    date: date || null,
-    created_at: new Date().toISOString(),
-  });
-  saveZoomLinks(all);
-
+  const data = {
+    course_id: Number(document.getElementById("zoomCourse").value),
+    title: document.getElementById("zoomTitle").value.trim(),
+    url: document.getElementById("zoomUrl").value.trim(),
+    date: document.getElementById("zoomDate").value || null,
+  };
+  const { error } = await sb.from("zoom_links").insert(data);
+  if (error) return alert("❌ " + error.message);
   bootstrap.Modal.getInstance(document.getElementById("zoomModal")).hide();
   renderZoom();
   renderDashboard();
-  alert("✅ تم إضافة الرابط بنجاح");
+  alert("✅ تم إضافة الرابط");
 }
 
-function deleteZoomAdmin(id) {
-  if (!confirm("هل أنت متأكد من حذف الرابط؟")) return;
-  saveZoomLinks(getAllZoomLinks().filter(z => z.id !== Number(id)));
+async function deleteZoomAdmin(id) {
+  if (!confirm("حذف الرابط؟")) return;
+  await sb.from("zoom_links").delete().eq("id", id);
   renderZoom();
   renderDashboard();
 }
 
 // ==========================================================
-// Quizzes
+// 6. Quizzes
 // ==========================================================
-function renderQuizzes() {
-  const quizzes = getAdminQuizzes();
+async function renderQuizzes() {
+  const quizzes = await getQuizzes();
   const tbody = document.getElementById("quizzesTableBody");
   if (quizzes.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">لا توجد اختبارات</td></tr>`;
@@ -624,8 +532,8 @@ function renderQuizzes() {
   tbody.innerHTML = quizzes.map((q) => `
     <tr>
       <td><strong>${escapeHtml(q.title)}</strong></td>
-      <td>${escapeHtml(q.course_title || "—")}</td>
-      <td class="text-center">${q.questions?.length || 0}</td>
+      <td>${escapeHtml(q.course?.title || "—")}</td>
+      <td class="text-center">—</td>
       <td class="text-center">${q.time_limit_min || 15} د</td>
       <td class="text-center">${q.pass_score || 60}%</td>
       <td class="text-center">
@@ -636,39 +544,37 @@ function renderQuizzes() {
   `).join("");
 }
 
-function openQuizModal() {
+async function openQuizModal() {
   document.getElementById("quizModalTitle").textContent = "إضافة اختبار";
   document.getElementById("quizForm").reset();
   document.getElementById("quizId").value = "";
   document.getElementById("questionsList").innerHTML = "";
-  questionCounter = 0;  // ✅ صفّر العداد
-  loadCoursesIntoQuizSelect();
+  questionCounter = 0;
+  const courses = await getCourses({ limit: 999 });
+  document.getElementById("quizCourse").innerHTML = courses.map((c) => `<option value="${c.id}">${c.title}</option>`).join("");
   addQuestion();
   new bootstrap.Modal(document.getElementById("quizModal")).show();
 }
 
-function editQuiz(id) {
-  const q = getAdminQuizzes().find((x) => x.id === id);
-  if (!q) return;
+async function editQuiz(id) {
+  const quiz = await getQuizById(id);
+  if (!quiz) return;
   document.getElementById("quizModalTitle").textContent = "تعديل اختبار";
-  document.getElementById("quizId").value = q.id;
-  document.getElementById("quizTitle").value = q.title;
-  document.getElementById("quizCourse").value = q.course_id;
-  document.getElementById("quizDuration").value = q.time_limit_min || 15;
-  document.getElementById("quizPassScore").value = q.pass_score || 60;
-  loadCoursesIntoQuizSelect(q.course_id);
-  document.getElementById("questionsList").innerHTML = "";
-  questionCounter = 0;  // ✅ صفّر العداد
-  (q.questions || []).forEach((question) => addQuestion(question));
-  new bootstrap.Modal(document.getElementById("quizModal")).show();
-}
+  document.getElementById("quizId").value = quiz.id;
+  document.getElementById("quizTitle").value = quiz.title;
+  document.getElementById("quizDuration").value = quiz.time_limit_min || 15;
+  document.getElementById("quizPassScore").value = quiz.pass_score || 60;
 
-function loadCoursesIntoQuizSelect(selected = null) {
-  const select = document.getElementById("quizCourse");
-  const courses = getAdminCourses();
-  select.innerHTML = courses.map((c) =>
-    `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${c.title}</option>`
+  const courses = await getCourses({ limit: 999 });
+  document.getElementById("quizCourse").innerHTML = courses.map((c) =>
+    `<option value="${c.id}" ${c.id === quiz.course_id ? "selected" : ""}>${c.title}</option>`
   ).join("");
+
+  document.getElementById("questionsList").innerHTML = "";
+  questionCounter = 0;
+  (quiz.questions || []).forEach((q) => addQuestion(q));
+
+  new bootstrap.Modal(document.getElementById("quizModal")).show();
 }
 
 let questionCounter = 0;
@@ -685,28 +591,24 @@ function addQuestion(question = null) {
     <div class="d-flex justify-content-between align-items-center mb-2">
       <strong class="text-primary">سؤال #${id}</strong>
       <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.question-card').remove()">
-        <i class="bi bi-trash"></i> حذف
+        <i class="bi bi-trash"></i>
       </button>
     </div>
     <div class="mb-2">
-      <label class="form-label small fw-semibold">نص السؤال</label>
-      <input type="text" class="form-control form-control-sm q-text" value="${escapeHtml(q.text)}">
+      <input type="text" class="form-control form-control-sm q-text" value="${escapeHtml(q.text || '')}" placeholder="نص السؤال">
     </div>
     <div class="row g-2 mb-2">
       <div class="col-md-6">
-        <label class="form-label small fw-semibold">النوع</label>
         <select class="form-select form-select-sm q-type">
           <option value="mcq" ${q.type === "mcq" ? "selected" : ""}>اختيار من متعدد</option>
           <option value="tf" ${q.type === "tf" ? "selected" : ""}>صح / خطأ</option>
         </select>
       </div>
       <div class="col-md-6">
-        <label class="form-label small fw-semibold">النقاط</label>
         <input type="number" class="form-control form-control-sm q-points" value="${q.points || 5}" min="1">
       </div>
     </div>
     <div class="q-options-mcq" ${q.type !== "mcq" ? 'style="display:none"' : ""}>
-      <label class="form-label small fw-semibold">الخيارات (اختر الصحيحة)</label>
       ${[0,1,2,3].map((i) => `
         <div class="input-group input-group-sm mb-1">
           <span class="input-group-text">
@@ -717,16 +619,13 @@ function addQuestion(question = null) {
       `).join("")}
     </div>
     <div class="q-options-tf" ${q.type !== "tf" ? 'style="display:none"' : ""}>
-      <label class="form-label small fw-semibold">الإجابة الصحيحة</label>
-      <div>
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="tf_${id}" value="true" ${q.correct_answer === true ? "checked" : ""}>
-          <label class="form-check-label">صح</label>
-        </div>
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="tf_${id}" value="false" ${q.correct_answer === false ? "checked" : ""}>
-          <label class="form-check-label">خطأ</label>
-        </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="tf_${id}" value="true" ${q.correct_answer === true ? "checked" : ""}>
+        <label class="form-check-label">صح</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="tf_${id}" value="false" ${q.correct_answer === false ? "checked" : ""}>
+        <label class="form-check-label">خطأ</label>
       </div>
     </div>
   `;
@@ -740,9 +639,6 @@ function addQuestion(question = null) {
   });
 }
 
-// ==========================================================
-// ✅ جمع الأسئلة مع IDs فريدة
-// ==========================================================
 function collectQuestions() {
   const cards = document.querySelectorAll(".question-card");
   const questions = [];
@@ -767,123 +663,111 @@ function collectQuestions() {
 
     qIndex++;
     questions.push({
-      id: qIndex,   // ✅ ID فريد لكل سؤال
       type, text, options, correct_answer,
       points: Number(card.querySelector(".q-points").value) || 5,
+      position: qIndex,
     });
   });
   return questions;
 }
 
-function saveQuiz(e) {
+async function saveQuiz(e) {
   e.preventDefault();
   const id = document.getElementById("quizId").value;
   const courseId = Number(document.getElementById("quizCourse").value);
-  const course = getAdminCourses().find((c) => c.id === courseId);
   const questions = collectQuestions();
 
-  if (questions.length === 0) {
-    alert("⚠️ أضف سؤال واحد على الأقل");
-    return;
-  }
+  if (questions.length === 0) return alert("⚠️ أضف سؤال واحد على الأقل");
 
-  const data = {
-    title: document.getElementById("quizTitle").value.trim(),
+  const quizData = {
     course_id: courseId,
-    course_title: course?.title || "",
+    title: document.getElementById("quizTitle").value.trim(),
     time_limit_min: Number(document.getElementById("quizDuration").value) || 15,
     pass_score: Number(document.getElementById("quizPassScore").value) || 60,
-    questions,
   };
 
-  let quizzes = getAdminQuizzes();
+  let quizId = id;
 
   if (id) {
-    quizzes = quizzes.map((q) => (q.id === Number(id) ? { ...q, ...data } : q));
+    const { error } = await sb.from("quizzes").update(quizData).eq("id", Number(id));
+    if (error) return alert("❌ " + error.message);
+    // احذف الأسئلة القديمة
+    await sb.from("questions").delete().eq("quiz_id", Number(id));
   } else {
-    const newId = Math.max(...quizzes.map((q) => q.id), 0) + 1;
-    quizzes.push({ id: newId, ...data });
+    const { data, error } = await sb.from("quizzes").insert(quizData).select().single();
+    if (error) return alert("❌ " + error.message);
+    quizId = data.id;
   }
 
-  saveAdminQuizzes(quizzes);
+  // أضف الأسئلة
+  const questionsData = questions.map((q) => ({ ...q, quiz_id: quizId }));
+  const { error: qErr } = await sb.from("questions").insert(questionsData);
+  if (qErr) return alert("❌ " + qErr.message);
+
   bootstrap.Modal.getInstance(document.getElementById("quizModal")).hide();
   renderQuizzes();
   renderDashboard();
-  alert("✅ تم حفظ الاختبار بنجاح");
+  alert("✅ تم الحفظ");
 }
 
-function deleteQuiz(id) {
-  if (!confirm("هل أنت متأكد من حذف الاختبار؟")) return;
-  saveAdminQuizzes(getAdminQuizzes().filter((q) => q.id !== id));
+async function deleteQuiz(id) {
+  if (!confirm("حذف الاختبار؟")) return;
+  await sb.from("quizzes").delete().eq("id", id);
   renderQuizzes();
   renderDashboard();
 }
 
 // ==========================================================
-// Results
+// 7. Results
 // ==========================================================
-function renderResults() {
-  const attempts = getAllAttempts();
-  const users = getUsers();
+async function renderResults() {
+  const attempts = await getAllAttempts();
+  const users = await getUsers();
 
   const totalAttempts = attempts.length;
   const uniqueStudents = new Set(attempts.map((a) => a.user_id)).size;
-  const passed = attempts.filter((a) => {
-    const pct = a.total_points > 0 ? (a.score / a.total_points) * 100 : 0;
-    return pct >= (a.pass_score || 60);
-  }).length;
+  const passed = attempts.filter((a) => a.passed).length;
   const avgScore = totalAttempts > 0
     ? Math.round(attempts.reduce((s, a) => s + (a.total_points > 0 ? (a.score / a.total_points) * 100 : 0), 0) / totalAttempts)
     : 0;
 
   document.getElementById("resultsStats").innerHTML = `
-    <div class="col-md-3">
-      <div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
-        <div class="icon bg-primary-subtle text-primary"><i class="bi bi-clipboard-check"></i></div>
-        <div><div class="fs-3 fw-bold">${totalAttempts}</div><small class="text-muted">محاولة</small></div>
-      </div></div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
-        <div class="icon bg-info-subtle text-info"><i class="bi bi-people"></i></div>
-        <div><div class="fs-3 fw-bold">${uniqueStudents}</div><small class="text-muted">طالب</small></div>
-      </div></div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
-        <div class="icon bg-success-subtle text-success"><i class="bi bi-check-circle"></i></div>
-        <div><div class="fs-3 fw-bold">${passed}</div><small class="text-muted">ناجح</small></div>
-      </div></div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
-        <div class="icon bg-warning-subtle text-warning"><i class="bi bi-graph-up"></i></div>
-        <div><div class="fs-3 fw-bold">${avgScore}%</div><small class="text-muted">متوسط</small></div>
-      </div></div>
-    </div>
+    <div class="col-md-3"><div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
+      <div class="icon bg-primary-subtle text-primary"><i class="bi bi-clipboard-check"></i></div>
+      <div><div class="fs-3 fw-bold">${totalAttempts}</div><small class="text-muted">محاولة</small></div>
+    </div></div></div>
+    <div class="col-md-3"><div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
+      <div class="icon bg-info-subtle text-info"><i class="bi bi-people"></i></div>
+      <div><div class="fs-3 fw-bold">${uniqueStudents}</div><small class="text-muted">طالب</small></div>
+    </div></div></div>
+    <div class="col-md-3"><div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
+      <div class="icon bg-success-subtle text-success"><i class="bi bi-check-circle"></i></div>
+      <div><div class="fs-3 fw-bold">${passed}</div><small class="text-muted">ناجح</small></div>
+    </div></div></div>
+    <div class="col-md-3"><div class="stat-card"><div class="card-body d-flex align-items-center gap-3">
+      <div class="icon bg-warning-subtle text-warning"><i class="bi bi-graph-up"></i></div>
+      <div><div class="fs-3 fw-bold">${avgScore}%</div><small class="text-muted">متوسط</small></div>
+    </div></div></div>
   `;
 
   const tbody = document.getElementById("resultsTableBody");
   if (attempts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">لا توجد محاولات بعد</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">لا توجد محاولات</td></tr>`;
     return;
   }
 
-  const sorted = [...attempts].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-
-  tbody.innerHTML = sorted.map((a) => {
+  tbody.innerHTML = attempts.map((a) => {
     const user = users.find((u) => u.id === a.user_id);
     const pct = a.total_points > 0 ? Math.round((a.score / a.total_points) * 100) : 0;
-    const isPassed = pct >= (a.pass_score || 60);
     return `
       <tr>
         <td><strong>${escapeHtml(user?.full_name || "مجهول")}</strong>
             <div class="small text-muted">${escapeHtml(user?.email || "")}</div></td>
-        <td>${escapeHtml(a.quiz_title || "—")}</td>
+        <td>${escapeHtml(a.quiz?.title || "—")}</td>
         <td class="text-center"><span class="badge bg-primary-subtle text-primary">${getGradeName(user?.grade)}</span></td>
         <td class="text-center"><strong>${a.score}</strong> / ${a.total_points}</td>
-        <td class="text-center"><span class="badge ${isPassed ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}">${pct}%</span></td>
-        <td class="text-center"><span class="badge ${isPassed ? "bg-success" : "bg-danger"}">${isPassed ? "ناجح" : "راسب"}</span></td>
+        <td class="text-center"><span class="badge ${a.passed ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}">${pct}%</span></td>
+        <td class="text-center"><span class="badge ${a.passed ? "bg-success" : "bg-danger"}">${a.passed ? "ناجح" : "راسب"}</span></td>
         <td class="text-center text-muted small">${new Date(a.submitted_at).toLocaleDateString("ar-EG")}</td>
       </tr>
     `;
@@ -891,10 +775,10 @@ function renderResults() {
 }
 
 // ==========================================================
-// Users
+// 8. Users
 // ==========================================================
-function renderUsers() {
-  const users = getUsers();
+async function renderUsers() {
+  const users = await getUsers();
   const tbody = document.getElementById("usersTableBody");
   if (users.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">لا يوجد مستخدمين</td></tr>`;
@@ -903,115 +787,44 @@ function renderUsers() {
   tbody.innerHTML = users.map((u) => `
     <tr>
       <td><strong>${escapeHtml(u.full_name)}</strong></td>
-      <td>${escapeHtml(u.email)}</td>
+      <td>${escapeHtml(u.email || "—")}</td>
       <td><span class="badge ${u.role === "admin" ? "bg-danger-subtle text-danger" : "bg-primary-subtle text-primary"}">${u.role === "admin" ? "مشرف" : "طالب"}</span></td>
-      <td class="small">${u.role === "admin" ? "—" : getGradeName(u.grade)}</td>
+      <td class="small">${getGradeName(u.grade)}</td>
       <td class="text-muted small">${new Date(u.created_at).toLocaleDateString("ar-EG")}</td>
     </tr>
   `).join("");
 }
 
-// ==========================================================
-// Students
-// ==========================================================
-function renderStudents() {
-  const users = getUsers().filter((u) => u.role === "student");
+async function renderStudents() {
+  const users = (await getUsers()).filter((u) => u.role === "student");
   const tbody = document.getElementById("studentsTableBody");
   if (users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">لا يوجد طلاب بعد.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">لا يوجد طلاب</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map((u) => `
     <tr>
       <td><strong>${escapeHtml(u.full_name)}</strong></td>
-      <td><code class="text-primary">${escapeHtml(u.email)}</code></td>
-      <td><code class="text-danger">${escapeHtml(u.password || "—")}</code></td>
+      <td><code class="text-primary">${escapeHtml(u.email || "—")}</code></td>
+      <td>—</td>
       <td><span class="badge bg-primary-subtle text-primary">${getGradeName(u.grade)}</span></td>
       <td class="small text-muted">${new Date(u.created_at).toLocaleDateString("ar-EG")}</td>
       <td class="text-center">
-        <button class="btn btn-sm btn-outline-danger" onclick="deleteStudent('${u.id}')"><i class="bi bi-trash"></i></button>
+        <span class="text-muted small">يدير عبر Supabase</span>
       </td>
     </tr>
   `).join("");
 }
 
 function openStudentModal() {
-  document.getElementById("studentForm").reset();
-  document.getElementById("studentResult").classList.add("d-none");
-  new bootstrap.Modal(document.getElementById("studentModal")).show();
-}
-
-function createStudent(e) {
-  e.preventDefault();
-  const fullName = document.getElementById("studentName").value.trim();
-  const grade = document.getElementById("studentGrade").value;
-  if (!fullName || !grade) { alert("⚠️ املأ الاسم والسنة"); return; }
-
-  const users = getUsers();
-  let email = generateEmail(fullName, grade);
-  let attempts = 0;
-  while (users.find((u) => u.email === email) && attempts < 10) {
-    email = generateEmail(fullName, grade);
-    attempts++;
-  }
-  const password = generatePassword();
-  const student = {
-    id: "u_" + Date.now(),
-    full_name: fullName, email, password,
-    role: "student", grade,
-    created_at: new Date().toISOString(),
-  };
-  users.push(student);
-  saveUsers(users);
-
-  const resultBox = document.getElementById("studentResult");
-  resultBox.classList.remove("d-none");
-  resultBox.innerHTML = `
-    <div class="alert alert-success">
-      <h6 class="fw-bold"><i class="bi bi-check-circle-fill"></i> تم إنشاء حساب الطالب</h6>
-      <div class="p-3 bg-white rounded border">
-        <div class="mb-2"><strong>الاسم:</strong> ${escapeHtml(fullName)}</div>
-        <div class="mb-2"><strong>الإيميل:</strong> <code>${escapeHtml(email)}</code></div>
-        <div class="mb-2"><strong>الرقم السري:</strong> <code>${escapeHtml(password)}</code></div>
-        <div><strong>السنة:</strong> ${getGradeName(grade)}</div>
-      </div>
-      <button class="btn btn-sm btn-primary mt-3" onclick="copyStudentData('${fullName}', '${email}', '${password}', '${getGradeName(grade)}')">
-        <i class="bi bi-clipboard-check"></i> نسخ كل البيانات
-      </button>
-    </div>
-  `;
-
-  renderStudents();
-  renderDashboard();
-}
-
-function deleteStudent(id) {
-  if (!confirm("هل أنت متأكد من حذف الطالب؟")) return;
-  saveUsers(getUsers().filter((u) => u.id !== id));
-  renderStudents();
-  renderDashboard();
-}
-
-function copyStudentData(name, email, password, grade) {
-  const text = `بيانات الدخول لمنصة Ta3leem:\n────────────────────\nالاسم: ${name}\nالإيميل: ${email}\nالرقم السري: ${password}\nالسنة الدراسية: ${grade}\n────────────────────`;
-  navigator.clipboard.writeText(text).then(() => showToast("✅ تم نسخ كل البيانات"));
-}
-
-function showToast(msg) {
-  const toast = document.createElement("div");
-  toast.className = "position-fixed bottom-0 end-0 m-3 p-3 bg-success text-white rounded shadow";
-  toast.style.zIndex = "9999";
-  toast.textContent = msg;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
+  alert("إضافة الطلاب الآن عبر Supabase Auth. أدعوهم للتسجيل مباشرة.");
 }
 
 // ==========================================================
-// Settings — إعدادات المنصة
+// 9. Settings
 // ==========================================================
-function renderSettings() {
-  const settings = getSettings();
-
+async function renderSettings() {
+  const settings = await getSettings();
   const el = (id) => document.getElementById(id);
   if (el("settingPlatformNameAr")) el("settingPlatformNameAr").value = settings.platform_name_ar || "";
   if (el("settingPlatformName")) el("settingPlatformName").value = settings.platform_name || "";
@@ -1020,7 +833,7 @@ function renderSettings() {
   if (el("settingManagerTitle")) el("settingManagerTitle").value = settings.manager_title || "";
 }
 
-function savePlatformSettings() {
+async function savePlatformSettings() {
   const settings = {
     platform_name: document.getElementById("settingPlatformName").value.trim() || "Ta3leem",
     platform_name_ar: document.getElementById("settingPlatformNameAr").value.trim() || "تعليم",
@@ -1028,9 +841,12 @@ function savePlatformSettings() {
     manager_name: document.getElementById("settingManagerName").value.trim() || "أحمد كرم",
     manager_title: document.getElementById("settingManagerTitle").value.trim() || "مدير المنصة",
   };
-  saveSettings(settings);
-  alert("✅ تم حفظ الإعدادات بنجاح");
+
+  const { error } = await saveSettings(settings);
+  if (error) return alert("❌ " + error.message);
+  alert("✅ تم حفظ الإعدادات");
 }
+
 // ==========================================================
 // Init
 // ==========================================================
