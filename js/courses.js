@@ -203,7 +203,9 @@ async function initCourseDetail() {
               <div class="display-6 fw-bold text-success mb-1">مجاني</div>
               <small class="text-muted">بدون أي رسوم</small>
             </div>
-            <button id="enrollBtn" class="btn btn-primary w-100 btn-lg mb-2"><i class="bi bi-person-plus"></i> سجّل في الدورة</button>
+            <button id="enrollBtn" class="btn btn-primary w-100 btn-lg mb-2">
+              <i class="bi bi-person-plus"></i> سجّل في الدورة
+            </button>
             <ul class="list-unstyled small mt-4">
               <li class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-check-circle-fill text-success"></i> وصول كامل مدى الحياة</li>
               <li class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-check-circle-fill text-success"></i> ${totalLessons} درس</li>
@@ -215,41 +217,58 @@ async function initCourseDetail() {
     </div>
   `;
 
+  // ==========================================================
+  // ⭐ زر التسجيل
+  // ==========================================================
   const btn = document.getElementById("enrollBtn");
-  if (btn) {
-    const user = await getCurrentUser();
-    const enrollments = user ? await getEnrollments(user.id) : [];
-    const isEnrolled = enrollments.some(e => e.course?.id === course.id);
+  if (!btn) return;
 
-    if (isEnrolled) {
+  const user = await getCurrentUser();
+  const enrollments = user ? await getEnrollments(user.id) : [];
+  const isEnrolled = enrollments.some(e => e.course?.id === course.id);
+
+  if (isEnrolled) {
+    // المستخدم مسجل بالفعل → زر "ابدأ التعلم" أخضر
+    btn.innerHTML = '<i class="bi bi-play-circle"></i> ابدأ التعلم';
+    btn.className = "btn btn-success w-100 btn-lg mb-2";
+    btn.onclick = () => {
+      window.location.href = `learn.html?slug=${course.slug}`;
+    };
+  } else {
+    // المستخدم مش مسجل
+    btn.onclick = async () => {
+      const u = await getCurrentUser();
+      if (!u) {
+        window.location.href = "login.html?redirect=course.html?slug=" + course.slug;
+        return;
+      }
+
+      // Loading
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> جاري التسجيل...';
+
+      const { error } = await enrollInCourse(u.id, course.id);
+
+      if (error) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-person-plus"></i> سجّل في الدورة';
+        showError(error, "تعذّر التسجيل");
+        return;
+      }
+
+      // نجاح
+      btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-play-circle"></i> ابدأ التعلم';
       btn.className = "btn btn-success w-100 btn-lg mb-2";
 
-      btn.onclick = async () => {
-  const u = await getCurrentUser();
-  if (!u) { window.location.href = "login.html"; return; }
+      // 🔔 Modal في المنتصف
+      showSuccess("تم تسجيلك في الدورة بنجاح!", "🎉 مبروك");
 
-  // زر loading
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> جاري التسجيل...';
-
-  const { error } = await enrollInCourse(u.id, course.id);
-
-  if (error) {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-person-plus"></i> سجّل في الدورة';
-    showError(error, "تعذّر التسجيل");
-    return;
-  }
-
-  // نجاح → modal بدل alert
-  showSuccess("تم تسجيلك في الدورة بنجاح! جاري تحويلك للتعلم...", "🎉 مبروك");
-
-  setTimeout(() => {
-    window.location.href = "learn.html?slug=" + course.slug;
-  }, 1500);
-};
-    }
+      // بعد ما يضغط OK → روح learn
+      btn.onclick = () => {
+        window.location.href = `learn.html?slug=${course.slug}`;
+      };
+    };
   }
 }
 

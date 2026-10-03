@@ -13,7 +13,7 @@ function escapeHtml(text) {
 }
 
 // ==========================================================
-// ⚠️ Fallback Constants (للكود القديم)
+// Fallback Constants
 // ==========================================================
 const LOCAL_CATEGORIES = [
   { id: 1, name_ar: "برمجة", slug: "programming", icon: "bi-code-slash" },
@@ -26,7 +26,7 @@ const LOCAL_CATEGORIES = [
 const LOCAL_COURSES = [];
 
 // ==========================================================
-// 1. CATEGORIES — التصنيفات
+// 1. CATEGORIES
 // ==========================================================
 async function getCategories() {
   try {
@@ -43,7 +43,7 @@ async function getCategories() {
 }
 
 // ==========================================================
-// 2. COURSES — الدورات
+// 2. COURSES
 // ==========================================================
 async function getCourses({ limit = 6, categoryId = null, level = null, search = "", sortBy = "newest" } = {}) {
   try {
@@ -134,7 +134,7 @@ async function getLessonById(id) {
 }
 
 // ==========================================================
-// 3. AUTH — المصادقة (Supabase Auth)
+// 3. AUTH
 // ==========================================================
 async function getCurrentUser() {
   try {
@@ -145,14 +145,14 @@ async function getCurrentUser() {
       .from("profiles")
       .select("*")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
     return {
       id: user.id,
       email: user.email,
-      full_name: profile?.full_name || user.email.split("@")[0],
-      role: profile?.role || "student",
-      grade: profile?.grade || null,
+      full_name: profile?.full_name || user.user_metadata?.full_name || user.email.split("@")[0],
+      role: profile?.role || user.user_metadata?.role || "student",
+      grade: profile?.grade || user.user_metadata?.grade || null,
       avatar_url: profile?.avatar_url,
     };
   } catch (err) {
@@ -197,7 +197,7 @@ async function logoutUser() {
 }
 
 // ==========================================================
-// 4. ENROLLMENTS — التسجيل في الدورات
+// 4. ENROLLMENTS
 // ==========================================================
 async function getEnrollments(userId) {
   try {
@@ -227,7 +227,7 @@ async function enrollInCourse(userId, courseId) {
       .single();
 
     if (error) {
-      if (error.code === "23505") return { error: "أنت مسجل بالفعل" };
+      if (error.code === "23505") return { error: "أنت مسجل بالفعل في هذه الدورة" };
       throw error;
     }
     return { data, error: null };
@@ -237,7 +237,7 @@ async function enrollInCourse(userId, courseId) {
 }
 
 // ==========================================================
-// 5. LESSON PROGRESS — تقدم الدروس
+// 5. LESSON PROGRESS
 // ==========================================================
 async function markLessonComplete(userId, courseId, lessonId) {
   try {
@@ -292,7 +292,7 @@ async function isLessonComplete(userId, courseId, lessonId) {
 }
 
 // ==========================================================
-// 6. QUIZZES — الاختبارات
+// 6. QUIZZES
 // ==========================================================
 async function getQuizzes({ courseId = null } = {}) {
   try {
@@ -339,7 +339,7 @@ async function getQuizById(id) {
 }
 
 // ==========================================================
-// 7. QUIZ ATTEMPTS — محاولات الاختبارات
+// 7. QUIZ ATTEMPTS
 // ==========================================================
 async function addAttempt(attempt) {
   try {
@@ -394,7 +394,7 @@ async function getAllAttempts() {
 }
 
 // ==========================================================
-// 8. PRESENTATIONS — العروض
+// 8. PRESENTATIONS
 // ==========================================================
 async function getAllPresentations() {
   try {
@@ -427,7 +427,7 @@ async function getPresentationsByCourse(courseId) {
 }
 
 // ==========================================================
-// 9. ZOOM LINKS — روابط البث
+// 9. ZOOM LINKS
 // ==========================================================
 async function getAllZoomLinks() {
   try {
@@ -459,7 +459,7 @@ async function getZoomByCourse(courseId) {
 }
 
 // ==========================================================
-// 10. CERTIFICATES — الشهادات
+// 10. CERTIFICATES
 // ==========================================================
 function generateCertificateCode() {
   const year = new Date().getFullYear();
@@ -471,7 +471,6 @@ function generateCertificateCode() {
 
 async function getOrCreateCertificate(userId, courseId) {
   try {
-    // هل موجودة؟
     const { data: existing } = await sb
       .from("certificates")
       .select("*")
@@ -481,7 +480,6 @@ async function getOrCreateCertificate(userId, courseId) {
 
     if (existing) return existing;
 
-    // إنشاء جديدة
     const code = generateCertificateCode();
     const { data, error } = await sb
       .from("certificates")
@@ -498,7 +496,7 @@ async function getOrCreateCertificate(userId, courseId) {
 }
 
 // ==========================================================
-// 11. SETTINGS — الإعدادات
+// 11. SETTINGS
 // ==========================================================
 async function getSettings() {
   try {
@@ -541,7 +539,7 @@ async function saveSettings(settings) {
 }
 
 // ==========================================================
-// 12. USERS — المستخدمين
+// 12. USERS
 // ==========================================================
 async function getUsers() {
   try {
@@ -559,7 +557,7 @@ async function getUsers() {
 }
 
 // ==========================================================
-// 13. GRADES — السنوات الدراسية
+// 13. GRADES
 // ==========================================================
 const GRADES = [
   { id: "prep1", name: "الأول الإعدادي" },
@@ -576,32 +574,9 @@ function getGradeName(gradeId) {
 }
 
 // ==========================================================
-// 14. DB Object — للتوافق مع الكود
+// 14. 🎨 Custom Modal — رسائل في منتصف الصفحة
 // ==========================================================
-const DB = {
-  getCourses,
-  getCategories,
-  getCourseBySlug,
-  getLessonById,
-  getEnrollments,
-  enrollInCourse,
-  getCurrentUser,
-  register: registerUser,
-  login: loginUser,
-  logout: logoutUser,
-  getSettings,
-  saveSettings,
-  getUsers,
-  getGradeName,
-};
-
-
-/* ==========================================================
-   🎨 Custom Modal — رسائل في منتصف الصفحة
-   ========================================================== */
-
 (function initCustomModal() {
-  // ضيف الـ modal في الصفحة لما تحمّل
   document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("ta3leemModal")) return;
 
@@ -611,9 +586,7 @@ const DB = {
           <div id="ta3leemModalIcon" class="ta3leem-modal-icon"></div>
           <h4 id="ta3leemModalTitle" class="ta3leem-modal-title"></h4>
           <p id="ta3leemModalMessage" class="ta3leem-modal-message"></p>
-          <button id="ta3leemModalBtn" class="ta3leem-modal-btn">
-            حسناً
-          </button>
+          <button id="ta3leemModalBtn" class="ta3leem-modal-btn">حسناً</button>
         </div>
       </div>
     `;
@@ -627,20 +600,24 @@ function showMessage(type, message, options = {}) {
     title = "",
     buttonText = "حسناً",
     onClose = null,
-    duration = null,  // لو null → لازم المستخدم يدوس
+    duration = null,
   } = options;
 
   // انتظر الـ DOM
   setTimeout(() => {
     const modal = document.getElementById("ta3leemModal");
-    if (!modal) return;
+    if (!modal) {
+      // fallback
+      alert(message);
+      if (onClose) onClose();
+      return;
+    }
 
     const iconEl = document.getElementById("ta3leemModalIcon");
     const titleEl = document.getElementById("ta3leemModalTitle");
     const messageEl = document.getElementById("ta3leemModalMessage");
     const btnEl = document.getElementById("ta3leemModalBtn");
 
-    // إعدادات حسب النوع
     const types = {
       success: {
         icon: '<i class="bi bi-check-circle-fill"></i>',
@@ -670,39 +647,25 @@ function showMessage(type, message, options = {}) {
 
     const conf = types[type] || types.info;
 
-    // الأيقونة
     iconEl.innerHTML = conf.icon;
     iconEl.style.color = conf.color;
     iconEl.style.backgroundColor = conf.bgColor;
-
-    // العنوان
     titleEl.textContent = title || conf.defaultTitle;
     titleEl.style.color = conf.color;
-
-    // الرسالة
     messageEl.textContent = message;
-
-    // الزر
     btnEl.textContent = buttonText;
     btnEl.style.backgroundColor = conf.color;
 
-    // إظهار
     modal.classList.add("active");
 
-    // زر الإغلاق
     const closeModal = () => {
       modal.classList.remove("active");
       if (onClose) onClose();
     };
 
     btnEl.onclick = closeModal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
-    // إغلاق بالضغط على الخلفية
-    modal.onclick = (e) => {
-      if (e.target === modal) closeModal();
-    };
-
-    // إغلاق بمفتاح ESC
     const escHandler = (e) => {
       if (e.key === "Escape") {
         closeModal();
@@ -711,16 +674,32 @@ function showMessage(type, message, options = {}) {
     };
     document.addEventListener("keydown", escHandler);
 
-    // إغلاق تلقائي (لو محدد)
-    if (duration) {
-      setTimeout(closeModal, duration);
-    }
+    if (duration) setTimeout(closeModal, duration);
 
   }, 50);
 }
 
-// ✅ بدائل مختصرة
 const showSuccess = (msg, title) => showMessage("success", msg, { title });
 const showError   = (msg, title) => showMessage("danger", msg, { title });
 const showWarning = (msg, title) => showMessage("warning", msg, { title });
 const showInfo    = (msg, title) => showMessage("info", msg, { title });
+
+// ==========================================================
+// 15. DB Object
+// ==========================================================
+const DB = {
+  getCourses,
+  getCategories,
+  getCourseBySlug,
+  getLessonById,
+  getEnrollments,
+  enrollInCourse,
+  getCurrentUser,
+  register: registerUser,
+  login: loginUser,
+  logout: logoutUser,
+  getSettings,
+  saveSettings,
+  getUsers,
+  getGradeName,
+};
