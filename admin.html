@@ -714,5 +714,96 @@
 <script src="js/db.js"></script>
 <script src="js/files.js"></script>
 <script src="js/admin.js"></script>
+<!-- ============================================================
+     MODAL: رسائل التأكيد والتنبيهات
+============================================================ -->
+<div class="modal fade" id="alertModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+      <div class="modal-body text-center p-4">
+        <div id="alertIcon" class="mb-3" style="font-size: 3.5rem;"></div>
+        <h5 id="alertTitle" class="fw-bold mb-2"></h5>
+        <p id="alertMessage" class="text-muted mb-4 small"></p>
+
+        <div id="alertButtons" class="d-flex gap-2 justify-content-center">
+          <button type="button" class="btn btn-primary px-4" id="alertConfirmBtn">حسناً</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================================
+// Helper: Modal للرسائل (بدل alert)
+// ==========================================================
+let alertModalInstance = null;
+
+function showAlertModal(type, message, options = {}) {
+  const { title = "", confirmText = "حسناً", onConfirm = null, showCancel = false, cancelText = "إلغاء" } = options;
+
+  const modalEl = document.getElementById("alertModal");
+  const iconEl = document.getElementById("alertIcon");
+  const titleEl = document.getElementById("alertTitle");
+  const messageEl = document.getElementById("alertMessage");
+  const buttonsEl = document.getElementById("alertButtons");
+
+  // الألوان والأيقونات حسب النوع
+  const types = {
+    success: { icon: "bi bi-check-circle-fill text-success", title: title || "تم بنجاح!" },
+    danger:  { icon: "bi bi-x-circle-fill text-danger",   title: title || "حدث خطأ" },
+    warning: { icon: "bi bi-exclamation-triangle-fill text-warning", title: title || "تنبيه" },
+    info:    { icon: "bi bi-info-circle-fill text-primary", title: title || "معلومة" },
+    confirm: { icon: "bi bi-question-circle-fill text-primary", title: title || "تأكيد" },
+  };
+
+  const conf = types[type] || types.info;
+
+  iconEl.className = conf.icon + " mb-3";
+  iconEl.style.fontSize = "3.5rem";
+  titleEl.textContent = conf.title;
+  messageEl.textContent = message;
+
+  // الأزرار
+  let buttonsHTML = "";
+  if (showCancel) {
+    buttonsHTML += `<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${cancelText}</button>`;
+  }
+  buttonsHTML += `<button type="button" class="btn btn-primary px-4" id="alertConfirmBtn">${confirmText}</button>`;
+  buttonsEl.innerHTML = buttonsHTML;
+
+  // Modal
+  if (!alertModalInstance) {
+    alertModalInstance = new bootstrap.Modal(modalEl);
+  }
+  alertModalInstance.show();
+
+  // زر التأكيد
+  setTimeout(() => {
+    const confirmBtn = document.getElementById("alertConfirmBtn");
+    if (confirmBtn) {
+      confirmBtn.onclick = () => {
+        alertModalInstance.hide();
+        if (onConfirm) onConfirm();
+      };
+    }
+  }, 100);
+}
+
+// ✅ بدائل مختصرة
+function showAdminToast(type, message) {
+  showAlertModal(type, message);
+}
+
+function confirmAdmin(message, onConfirm, title = "تأكيد") {
+  showAlertModal("confirm", message, {
+    title,
+    confirmText: "نعم",
+    cancelText: "إلغاء",
+    showCancel: true,
+    onConfirm
+  });
+}
+</script>
 </body>
 </html>

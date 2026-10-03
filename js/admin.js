@@ -816,8 +816,155 @@ async function renderStudents() {
   `).join("");
 }
 
+// ==========================================================
+// Students — إضافة طالب جديد
+// ==========================================================
 function openStudentModal() {
-  alert("إضافة الطلاب الآن عبر Supabase Auth. أدعوهم للتسجيل مباشرة.");
+  const form = document.getElementById("studentForm");
+  const resultEl = document.getElementById("studentResult");
+
+  if (form) form.reset();
+  if (resultEl) {
+    resultEl.classList.add("d-none");
+    resultEl.innerHTML = "";
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById("studentModal"));
+  modal.show();
+}
+
+async function createStudent(e) {
+  e.preventDefault();
+
+  const fullName = document.getElementById("studentName").value.trim();
+  const grade = document.getElementById("studentGrade").value;
+  const resultEl = document.getElementById("studentResult");
+
+  if (!fullName) return showAdminToast("danger", "اكتب اسم الطالب");
+  if (!grade) return showAdminToast("danger", "اختر السنة الدراسية");
+
+  // ✅ 1. ولّد إيميل وكلمة سر تلقائيًا
+  const slug = fullName
+    .toLowerCase()
+    .replace(/\s+/g, ".")
+    .replace(/[^\w\.]/g, "");
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const email = `${slug}${randomNum}@student.ta3leem.com`;
+  const password = generateRandomPassword(8);
+
+  // ✅ 2. اعرض loading
+  resultEl.classList.remove("d-none");
+  resultEl.innerHTML = `
+    <div class="alert alert-info d-flex align-items-center gap-2">
+      <span class="spinner-border spinner-border-sm"></span>
+      جاري إنشاء الحساب...
+    </div>`;
+
+  try {
+    // ✅ 3. أنشئ المستخدم في Supabase Auth
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role: "student",
+          grade: grade,
+        },
+      },
+    });
+
+    if (error) throw error;
+    if (!data.user) throw new Error("فشل إنشاء الحساب");
+
+    // ✅ 4. تأكد إن الـ profile اتعمل (trigger) أو أضفه يدويًا
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("*")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (!profile) {
+      // لو الـ trigger مش اشتغل، أضف الـ profile يدويًا
+      await sb.from("profiles").insert({
+        id: data.user.id,
+        email: email,
+        full_name: fullName,
+        role: "student",
+        grade: grade,
+      });
+    }
+
+    // ✅ 5. اعرض البيانات للطالب
+    resultEl.innerHTML = `
+      <div class="alert alert-success">
+        <h6 class="fw-bold mb-3">
+          <i class="bi bi-check-circle-fill"></i> تم إنشاء الحساب بنجاح!
+        </h6>
+        <div class="mb-2">
+          <label class="small text-muted d-block">الاسم:</label>
+          <strong>${escapeHtml(fullName)}</strong>
+        </div>
+        <div class="mb-2">
+          <label class="small text-muted d-block">البريد الإلكتروني:</label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control" value="${escapeHtml(email)}" readonly id="studentEmail">
+            <button class="btn btn-outline-secondary" onclick="copyToClipboard('${escapeHtml(email)}', this)">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="small text-muted d-block">كلمة المرور:</label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control" value="${escapeHtml(password)}" readonly id="studentPassword">
+            <button class="btn btn-outline-secondary" onclick="copyToClipboard('${escapeHtml(password)}', this)">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
+        <div class="small text-muted mt-3">
+          <i class="bi bi-info-circle"></i>
+          سلّم البيانات دي للطالب عشان يقدر يسجل دخول.
+        </div>
+      </div>`;
+
+    // ✅ 6. حدّث القائمة
+    renderStudents();
+
+  } catch (err) {
+    console.error("خطأ في إنشاء الطالب:", err);
+    resultEl.innerHTML = `
+      <div class="alert alert-danger">
+        <i class="bi bi-x-circle-fill"></i>
+        ${escapeHtml(err.message || "فشل إنشاء الحساب")}
+      </div>`;
+  }
+}
+
+// ✅ Helper: توليد كلمة مرور عشوائية
+function generateRandomPassword(length = 8) {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let pwd = "";
+  for (let i = 0; i < length; i++) {
+    pwd += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return pwd;
+}
+
+// ✅ Helper: نسخ للنافذة
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+    btn.classList.add("btn-success");
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.classList.remove("btn-success");
+    }, 1500);
+  });
 }
 
 // ==========================================================
