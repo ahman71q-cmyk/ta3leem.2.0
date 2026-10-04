@@ -20,7 +20,7 @@ const LOCAL_CATEGORIES = [
   { id: 2, name_ar: "تصميم", slug: "design", icon: "bi-palette" },
   { id: 3, name_ar: "لغات", slug: "languages", icon: "bi-translate" },
   { id: 4, name_ar: "تسويق", slug: "marketing", icon: "bi-megaphone" },
-  { id: 5, name_ar: "أعمال", slug: "business", icon: "bi-briefcase" },
+  { id: 5, name_ar: "طبخ", slug: "business", icon: "bi-briefcase" },
 ];
 
 const LOCAL_COURSES = [];
