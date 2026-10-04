@@ -20,7 +20,7 @@ function showTab(name, e) {
   if (name === "quizzes") renderQuizzes();
   if (name === "results") renderResults();
   if (name === "students") renderStudents();
-   if (name === "enrollments") renderEnrollments(); 
+  if (name === "enrollments") renderEnrollments(); 
   if (name === "users") renderUsers();
   if (name === "settings") renderSettings();
 }
