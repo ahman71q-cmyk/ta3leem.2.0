@@ -576,8 +576,19 @@ function getGradeName(gradeId) {
 // ==========================================================
 // 14. 🎨 Custom Modal — رسائل في منتصف الصفحة
 // ==========================================================
+// 
+     // ==========================================================
+// 14. 🎨 Custom Modal — رسائل في منتصف الصفحة
+// ==========================================================
 (function initCustomModal() {
   document.addEventListener("DOMContentLoaded", () => {
+    // ✅ استثناء صفحة الأدمن
+    const isAdminPage = window.location.pathname.includes("admin.html");
+    if (isAdminPage) {
+      console.log("⏭️ Skipping ta3leemModal on admin page");
+      return;
+    }
+
     if (document.getElementById("ta3leemModal")) return;
 
     const modalHTML = `
@@ -596,13 +607,20 @@ function getGradeName(gradeId) {
 })();
 
 function showMessage(type, message, options = {}) {
+  // ✅ استثناء صفحة الأدمن — استخدم alert عادي
+  const isAdminPage = window.location.pathname.includes("admin.html");
+  if (isAdminPage) {
+    alert(message);
+    if (options.onClose) options.onClose();
+    return;
+  }
+
   const {
     title = "",
     buttonText = "حسناً",
     onClose = null,
     duration = null,
   } = options;
-
   // انتظر الـ DOM
   setTimeout(() => {
     const modal = document.getElementById("ta3leemModal");
