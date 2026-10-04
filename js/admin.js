@@ -20,6 +20,7 @@ function showTab(name, e) {
   if (name === "quizzes") renderQuizzes();
   if (name === "results") renderResults();
   if (name === "students") renderStudents();
+   if (name === "enrollments") renderEnrollments(); 
   if (name === "users") renderUsers();
   if (name === "settings") renderSettings();
 }
@@ -222,46 +223,93 @@ async function saveCourse(e) {
   e.preventDefault();
   const id = document.getElementById("courseId").value;
 
-  const data = {
-    title: document.getElementById("courseTitle").value.trim(),
-    level: document.getElementById("courseLevel").value,
-    category_id: Number(document.getElementById("courseCategory").value),
-    duration_hours: Number(document.getElementById("courseDuration").value) || 10,
-    students_count: Number(document.getElementById("courseStudentsCount").value) || 0,
-    thumbnail_url: document.getElementById("courseThumbnail").value.trim() ||
-      "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800",
-    description: document.getElementById("courseDescription").value.trim(),
-  };
+  const title = document.getElementById("courseTitle").value.trim();
+  const level = document.getElementById("courseLevel").value;
+  const categoryId = document.getElementById("courseCategory").value;
+  const duration = document.getElementById("courseDuration").value;
+  const studentsCount = document.getElementById("courseStudentsCount").value;
+  const thumbnail = document.getElementById("courseThumbnail").value.trim();
+  const description = document.getElementById("courseDescription").value.trim();
 
-  if (id) {
-    const { error } = await sb.from("courses").update(data).eq("id", Number(id));
-    if (error) return alert("❌ " + error.message);
-  } else {
-    const slug = data.title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w\-]/g, "") + "-" + Date.now();
-    const { error } = await sb.from("courses").insert({ ...data, slug, status: "published" });
-    if (error) return alert("❌ " + error.message);
+  // ✅ تحقق من الحقول الإلزامية
+  if (!title) {
+    return showAlertModal("warning", "اكتب عنوان الدورة");
+  }
+  if (!categoryId) {
+    return showAlertModal("warning", "اختر تصنيف الدورة");
+  }
+  if (!description) {
+    return showAlertModal("warning", "اكتب وصف الدورة");
   }
 
-  bootstrap.Modal.getInstance(document.getElementById("courseModal")).hide();
-  renderCourses();
-  renderDashboard();
-  alert("✅ تم الحفظ");
-}
+  const data = {
+    title,
+    level,
+    category_id: Number(categoryId),
+    duration_hours: Number(duration) || 10,
+    students_count: Number(studentsCount) || 0,
+    thumbnail_url: thumbnail ||
+      "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800",
+    description,
+  };
 
-async function deleteCourse(id) {
-  if (!confirm("حذف الدورة؟")) return;
-  const { error } = await sb.from("courses").delete().eq("id", id);
-  if (error) return alert("❌ " + error.message);
-  renderCourses();
-  renderDashboard();
-}
+  // ✅ زر الحفظ — عرض loading
+  const submitBtn = document.querySelector('#courseModal .modal-footer button.btn-primary');
+  const originalBtnHTML = submitBtn ? submitBtn.innerHTML : "";
 
-async function loadCategoriesIntoSelect(selectId, selected = null) {
-  const cats = await getCategories();
-  const select = document.getElementById(selectId);
-  select.innerHTML = cats.map((c) =>
-    `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${c.name_ar}</option>`
-  ).join("");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> جاري الحفظ...`;
+  }
+
+  try {
+    if (id) {
+      // ✅ تعديل
+      const { error } = await sb
+        .from("courses")
+        .update(data)
+        .eq("id", Number(id));
+
+      if (error) throw error;
+
+    } else {
+      // ✅ إضافة جديدة
+      const slug = title
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]/g, "") + "-" + Date.now();
+
+      const { error } = await sb
+        .from("courses")
+        .insert({ ...data, slug, status: "published" });
+
+      if (error) throw error;
+    }
+
+    // ✅ إغلاق الـ modal
+    bootstrap.Modal.getInstance(document.getElementById("courseModal")).hide();
+
+    // ✅ رسالة نجاح
+    showAlertModal(
+      "success",
+      id ? "تم تحديث الدورة بنجاح" : "تم إضافة الدورة بنجاح"
+    );
+
+    // ✅ تحديث القوائم
+    renderCourses();
+    renderDashboard();
+
+  } catch (err) {
+    console.error("خطأ في حفظ الدورة:", err);
+    showAlertModal("danger", err.message || "فشل حفظ الدورة");
+
+  } finally {
+    // ✅ إرجاع الزر لحالته
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHTML;
+    }
+  }
 }
 
 // ==========================================================
@@ -338,24 +386,30 @@ async function saveLesson(e) {
 
   if (id) {
     const { error } = await sb.from("lessons").update(data).eq("id", Number(id));
-    if (error) return alert("❌ " + error.message);
+    if (error) return showAlertModal("danger", error.message);
   } else {
     const { error } = await sb.from("lessons").insert(data);
-    if (error) return alert("❌ " + error.message);
+    if (error) return showAlertModal("danger", error.message);
   }
 
   bootstrap.Modal.getInstance(document.getElementById("lessonModal")).hide();
+  showAlertModal("success", "تم حفظ الدرس بنجاح");
   renderLessons();
   renderDashboard();
-  alert("✅ تم الحفظ");
 }
 
 async function deleteLesson(id) {
-  if (!confirm("حذف الدرس؟")) return;
-  const { error } = await sb.from("lessons").delete().eq("id", id);
-  if (error) return alert("❌ " + error.message);
-  renderLessons();
-  renderDashboard();
+  confirmAdmin("هل تريد حذف هذا الدرس؟", async () => {
+    try {
+      const { error } = await sb.from("lessons").delete().eq("id", id);
+      if (error) throw error;
+      showAlertModal("success", "تم حذف الدرس بنجاح");
+      renderLessons();
+      renderDashboard();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
 }
 
 // ==========================================================
@@ -406,10 +460,18 @@ async function savePresentation(e) {
   const desc = document.getElementById("presentationDesc").value.trim();
   const file = document.getElementById("presentationFile").files[0];
 
-  if (!title) return alert("⚠️ اكتب عنوان العرض");
-  if (!file) return alert("⚠️ اختر ملف");
+  if (!title) return showAlertModal("warning", "اكتب عنوان العرض");
+  if (!file) return showAlertModal("warning", "اختر ملف للعرض");
+
+  // ✅ تحقق من حجم الملف
+  const MAX_SIZE = 3 * 1024 * 1024; // 3 MB
+  if (file.size > MAX_SIZE) {
+    return showAlertModal("danger", "الملف أكبر من 3 ميجا. اختر ملف أصغر.");
+  }
 
   const submitBtn = document.querySelector('#presentationModal .modal-footer button.btn-primary');
+  const originalBtnHTML = submitBtn ? submitBtn.innerHTML : "";
+
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> جاري الرفع...`;
@@ -434,16 +496,23 @@ async function savePresentation(e) {
 
     if (dbErr) throw dbErr;
 
+    // ✅ إغلاق الـ modal
     bootstrap.Modal.getInstance(document.getElementById("presentationModal")).hide();
+
+    // ✅ رسالة نجاح
+    showAlertModal("success", "تم رفع العرض بنجاح");
+
+    // ✅ تحديث القوائم
     renderPresentations();
     renderDashboard();
-    alert("✅ تم رفع العرض");
+
   } catch (err) {
-    alert("❌ " + err.message);
+    console.error("خطأ في رفع العرض:", err);
+    showAlertModal("danger", err.message || "فشل رفع العرض");
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = `<i class="bi bi-save"></i> رفع وحفظ`;
+      submitBtn.innerHTML = originalBtnHTML;
     }
   }
 }
@@ -456,11 +525,17 @@ function submitPresentationForm() {
 }
 
 async function deletePresentationAdmin(id) {
-  if (!confirm("حذف العرض؟")) return;
-  const { error } = await sb.from("presentations").delete().eq("id", id);
-  if (error) return alert("❌ " + error.message);
-  renderPresentations();
-  renderDashboard();
+  confirmAdmin("هل تريد حذف هذا العرض؟", async () => {
+    try {
+      const { error } = await sb.from("presentations").delete().eq("id", id);
+      if (error) throw error;
+      showAlertModal("success", "تم حذف العرض بنجاح");
+      renderPresentations();
+      renderDashboard();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
 }
 
 // ==========================================================
@@ -505,20 +580,24 @@ async function saveZoom(e) {
     date: document.getElementById("zoomDate").value || null,
   };
   const { error } = await sb.from("zoom_links").insert(data);
-  if (error) return alert("❌ " + error.message);
+  if (error) return showAlertModal("danger", error.message);
   bootstrap.Modal.getInstance(document.getElementById("zoomModal")).hide();
+  showAlertModal("success", "تم إضافة الرابط بنجاح");
   renderZoom();
   renderDashboard();
-  alert("✅ تم إضافة الرابط");
 }
-
 async function deleteZoomAdmin(id) {
-  if (!confirm("حذف الرابط؟")) return;
-  await sb.from("zoom_links").delete().eq("id", id);
-  renderZoom();
-  renderDashboard();
+  confirmAdmin("هل تريد حذف هذا الرابط؟", async () => {
+    try {
+      await sb.from("zoom_links").delete().eq("id", id);
+      showAlertModal("success", "تم حذف الرابط بنجاح");
+      renderZoom();
+      renderDashboard();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
 }
-
 // ==========================================================
 // 6. Quizzes
 // ==========================================================
@@ -677,7 +756,9 @@ async function saveQuiz(e) {
   const courseId = Number(document.getElementById("quizCourse").value);
   const questions = collectQuestions();
 
-  if (questions.length === 0) return alert("⚠️ أضف سؤال واحد على الأقل");
+  if (questions.length === 0) {
+    return showAlertModal("warning", "أضف سؤال واحد على الأقل");
+  }
 
   const quizData = {
     course_id: courseId,
@@ -690,33 +771,224 @@ async function saveQuiz(e) {
 
   if (id) {
     const { error } = await sb.from("quizzes").update(quizData).eq("id", Number(id));
-    if (error) return alert("❌ " + error.message);
-    // احذف الأسئلة القديمة
+    if (error) return showAlertModal("danger", error.message);
     await sb.from("questions").delete().eq("quiz_id", Number(id));
   } else {
     const { data, error } = await sb.from("quizzes").insert(quizData).select().single();
-    if (error) return alert("❌ " + error.message);
+    if (error) return showAlertModal("danger", error.message);
     quizId = data.id;
   }
 
-  // أضف الأسئلة
   const questionsData = questions.map((q) => ({ ...q, quiz_id: quizId }));
   const { error: qErr } = await sb.from("questions").insert(questionsData);
-  if (qErr) return alert("❌ " + qErr.message);
+  if (qErr) return showAlertModal("danger", qErr.message);
 
   bootstrap.Modal.getInstance(document.getElementById("quizModal")).hide();
+  showAlertModal("success", "تم حفظ الاختبار بنجاح");
   renderQuizzes();
   renderDashboard();
-  alert("✅ تم الحفظ");
 }
-
 async function deleteQuiz(id) {
-  if (!confirm("حذف الاختبار؟")) return;
-  await sb.from("quizzes").delete().eq("id", id);
-  renderQuizzes();
-  renderDashboard();
+  confirmAdmin("هل تريد حذف هذا الاختبار؟", async () => {
+    try {
+      await sb.from("quizzes").delete().eq("id", id);
+      showAlertModal("success", "تم حذف الاختبار بنجاح");
+      renderQuizzes();
+      renderDashboard();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
 }
 
+
+
+// ==========================================================
+// Enrollments — الطلاب المسجلين في الدورات
+// ==========================================================
+async function renderEnrollments() {
+  const tbody = document.getElementById("enrollmentsTableBody");
+  const statsEl = document.getElementById("enrollmentsStats");
+  const courseFilter = document.getElementById("enrollCourseFilter");
+
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4">
+    <div class="spinner-border spinner-border-sm text-primary"></div>
+    جاري التحميل...
+  </td></tr>`;
+
+  try {
+    // ✅ جيب كل التسجيلات مع بيانات الطالب والدورة
+    const { data: enrollments, error } = await sb
+      .from("enrollments")
+      .select(`
+        id, user_id, course_id, progress_pct, enrolled_at, completed_at,
+        course:courses(id, title, thumbnail_url)
+      `)
+      .order("enrolled_at", { ascending: false });
+
+    if (error) throw error;
+
+    // ✅ جيب بيانات المستخدمين
+    const users = await getUsers();
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = u; });
+
+    // ✅ جيب الدورات للفلتر
+    const courses = await getCourses({ limit: 999 });
+    if (courseFilter && courseFilter.options.length <= 1) {
+      courseFilter.innerHTML = '<option value="">كل الدورات</option>' +
+        courses.map(c => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join("");
+    }
+
+    // ✅ الفلتر الحالي
+    const selectedCourseId = courseFilter?.value || "";
+    let filtered = enrollments || [];
+    if (selectedCourseId) {
+      filtered = filtered.filter(e => e.course_id === Number(selectedCourseId));
+    }
+
+    // ✅ الإحصائيات
+    const totalEnrollments = filtered.length;
+    const uniqueStudents = new Set(filtered.map(e => e.user_id)).size;
+    const completed = filtered.filter(e => e.progress_pct === 100).length;
+    const avgProgress = totalEnrollments > 0
+      ? Math.round(filtered.reduce((s, e) => s + (e.progress_pct || 0), 0) / totalEnrollments)
+      : 0;
+
+    statsEl.innerHTML = `
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon bg-primary-subtle text-primary"><i class="bi bi-person-check"></i></div>
+            <div>
+              <div class="fs-3 fw-bold">${totalEnrollments}</div>
+              <small class="text-muted">تسجيل</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon bg-info-subtle text-info"><i class="bi bi-people"></i></div>
+            <div>
+              <div class="fs-3 fw-bold">${uniqueStudents}</div>
+              <small class="text-muted">طالب</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon bg-success-subtle text-success"><i class="bi bi-trophy"></i></div>
+            <div>
+              <div class="fs-3 fw-bold">${completed}</div>
+              <small class="text-muted">مكتمل</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon bg-warning-subtle text-warning"><i class="bi bi-graph-up"></i></div>
+            <div>
+              <div class="fs-3 fw-bold">${avgProgress}%</div>
+              <small class="text-muted">متوسط</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // ✅ اعرض الجدول
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">
+        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+        لا يوجد طلاب مسجلين
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(enroll => {
+      const user = userMap[enroll.user_id];
+      const course = enroll.course;
+      const progress = enroll.progress_pct || 0;
+
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(user?.full_name || "—")}</strong>
+          </td>
+          <td class="small text-muted">${escapeHtml(user?.email || "—")}</td>
+          <td>
+            <span class="badge bg-primary-subtle text-primary">
+              ${getGradeName(user?.grade)}
+            </span>
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              ${course?.thumbnail_url ? 
+                `<img src="${course.thumbnail_url}" 
+                      style="width: 40px; height: 30px; object-fit: cover; border-radius: 4px;">` : ""}
+              <span>${escapeHtml(course?.title || "—")}</span>
+            </div>
+          </td>
+          <td class="text-center">
+            <div class="d-flex align-items-center gap-2" style="min-width: 100px;">
+              <div class="progress flex-grow-1" style="height: 6px;">
+                <div class="progress-bar ${progress === 100 ? "bg-success" : "bg-primary"}" 
+                     style="width: ${progress}%"></div>
+              </div>
+              <small class="fw-bold">${progress}%</small>
+            </div>
+          </td>
+          <td class="text-center small text-muted">
+            ${new Date(enroll.enrolled_at).toLocaleDateString("ar-EG")}
+          </td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-danger" 
+                    onclick="deleteEnrollment(${enroll.id})"
+                    title="إلغاء التسجيل">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    // ✅ ربط الفلتر
+    if (courseFilter && !courseFilter.dataset.bound) {
+      courseFilter.dataset.bound = "true";
+      courseFilter.addEventListener("change", renderEnrollments);
+    }
+
+  } catch (err) {
+    console.error("خطأ في جلب التسجيلات:", err);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">
+      <i class="bi bi-exclamation-triangle fs-3 d-block mb-2"></i>
+      فشل تحميل البيانات: ${escapeHtml(err.message)}
+    </td></tr>`;
+  }
+}
+
+async function deleteEnrollment(id) {
+  confirmAdmin("هل تريد إلغاء تسجيل هذا الطالب من الدورة؟", async () => {
+    try {
+      const { error } = await sb.from("enrollments").delete().eq("id", id);
+      if (error) throw error;
+
+      showAlertModal("success", "تم إلغاء التسجيل بنجاح");
+      renderEnrollments();
+      renderDashboard();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
+}
 // ==========================================================
 // 7. Results
 // ==========================================================
@@ -752,7 +1024,7 @@ async function renderResults() {
 
   const tbody = document.getElementById("resultsTableBody");
   if (attempts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">لا توجد محاولات</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">لا توجد محاولات</td></tr>`;
     return;
   }
 
@@ -769,11 +1041,53 @@ async function renderResults() {
         <td class="text-center"><span class="badge ${a.passed ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}">${pct}%</span></td>
         <td class="text-center"><span class="badge ${a.passed ? "bg-success" : "bg-danger"}">${a.passed ? "ناجح" : "راسب"}</span></td>
         <td class="text-center text-muted small">${new Date(a.submitted_at).toLocaleDateString("ar-EG")}</td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-outline-danger" 
+                  onclick="deleteAttempt(${a.id})"
+                  title="حذف النتيجة">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
       </tr>
     `;
   }).join("");
 }
 
+// ✅ حذف محاولة واحدة
+async function deleteAttempt(id) {
+  confirmAdmin("هل تريد حذف هذه النتيجة؟", async () => {
+    try {
+      const { error } = await sb.from("quiz_attempts").delete().eq("id", id);
+      if (error) throw error;
+
+      showAlertModal("success", "تم حذف النتيجة بنجاح");
+      renderResults();
+      renderDashboard();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
+}
+
+// ✅ حذف كل النتائج
+async function clearAllResults() {
+  confirmAdmin(
+    "⚠️ هل تريد حذف كل نتائج الطلاب؟\nهذا الإجراء لا يمكن التراجع عنه!",
+    async () => {
+      try {
+        const { error } = await sb.from("quiz_attempts").delete().neq("id", 0);
+        if (error) throw error;
+
+        showAlertModal("success", "تم حذف كل النتائج بنجاح");
+        renderResults();
+        renderDashboard();
+      } catch (err) {
+        showAlertModal("danger", err.message);
+      }
+    },
+    "⚠️ تأكيد الحذف"
+  );
+}
 // ==========================================================
 // 8. Users
 // ==========================================================
@@ -990,13 +1304,10 @@ async function savePlatformSettings() {
   };
 
   const { error } = await saveSettings(settings);
-  if (error) return alert("❌ " + error.message);
-  alert("✅ تم حفظ الإعدادات");
+  if (error) return showAlertModal("danger", error.message);
+  showAlertModal("success", "تم حفظ الإعدادات بنجاح");
 }
 
-// ==========================================================
-// Init
-// ==========================================================
 // ==========================================================
 // Init + Authentication Guard
 // ==========================================================

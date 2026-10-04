@@ -159,6 +159,9 @@
       <a class="nav-link" href="#" onclick="showTab('students', event)">
         <i class="bi bi-person-plus"></i> إدارة الطلاب
       </a>
+      <a class="nav-link" href="#" onclick="showTab('enrollments', event)">
+         <i class="bi bi-person-check"></i> الطلاب المسجلين
+        </a>
       <a class="nav-link" href="#" onclick="showTab('users', event)">
         <i class="bi bi-people"></i> المستخدمين
       </a>
@@ -336,19 +339,35 @@
       </div>
     </div>
 
-    <!-- ================= Results ================= -->
-    <div id="tab-results" class="admin-tab d-none">
-      <h2>نتائج الطلاب</h2>
-      <div class="row g-3 mb-4" id="resultsStats"></div>
-      <div class="stat-card">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>الطالب</th><th>الاختبار</th><th class="text-center">السنة</th><th class="text-center">النقاط</th><th class="text-center">النسبة</th><th class="text-center">الحالة</th><th class="text-center">التاريخ</th></tr></thead>
-            <tbody id="resultsTableBody"></tbody>
-          </table>
-        </div>
-      </div>
+   <!-- ================= Results ================= -->
+<div id="tab-results" class="admin-tab d-none">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <h2 class="mb-0">نتائج الطلاب</h2>
+    <button class="btn btn-outline-danger" onclick="clearAllResults()">
+      <i class="bi bi-trash"></i> حذف كل النتائج
+    </button>
+  </div>
+  <div class="row g-3 mb-4" id="resultsStats"></div>
+  <div class="stat-card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>الطالب</th>
+            <th>الاختبار</th>
+            <th class="text-center">السنة</th>
+            <th class="text-center">النقاط</th>
+            <th class="text-center">النسبة</th>
+            <th class="text-center">الحالة</th>
+            <th class="text-center">التاريخ</th>
+            <th class="text-center">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="resultsTableBody"></tbody>
+      </table>
     </div>
+  </div>
+</div>
 
     <!-- ================= Students ================= -->
     <div id="tab-students" class="admin-tab d-none">
@@ -371,6 +390,42 @@
         </div>
       </div>
     </div>
+
+    <!-- ================= Enrollments ================= -->
+<div id="tab-enrollments" class="admin-tab d-none">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <h2 class="mb-0">الطلاب المسجلين في الدورات</h2>
+    <div class="d-flex gap-2 align-items-center">
+      <select id="enrollCourseFilter" class="form-select" style="min-width: 220px;">
+        <option value="">كل الدورات</option>
+      </select>
+      <button class="btn btn-outline-secondary" onclick="renderEnrollments()">
+        <i class="bi bi-arrow-clockwise"></i> تحديث
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4" id="enrollmentsStats"></div>
+
+  <div class="stat-card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>الطالب</th>
+            <th>البريد</th>
+            <th>السنة</th>
+            <th>الدورة</th>
+            <th class="text-center">التقدم</th>
+            <th class="text-center">تاريخ التسجيل</th>
+            <th class="text-center">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="enrollmentsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
     <!-- ================= Users ================= -->
     <div id="tab-users" class="admin-tab d-none">
