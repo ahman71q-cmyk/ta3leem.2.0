@@ -2,7 +2,6 @@
    Ta3leem — Admin Panel (Supabase)
    ========================================================== */
 
-// ==========================================================
 // Tabs
 // ==========================================================
 function showTab(name, e) {
@@ -195,12 +194,33 @@ async function renderCourses() {
     </tr>
   `).join("");
 }
-
-function openCourseModal() {
+// ==========================================================
+// Helper: تحميل التصنيفات في Select
+// ==========================================================
+async function loadCategoriesIntoSelect(selectId, selected = null) {
+  try {
+    const cats = await getCategories();
+    const select = document.getElementById(selectId);
+    if (!select) {
+      console.warn("Select not found:", selectId);
+      return;
+    }
+    select.innerHTML = cats.map((c) =>
+      `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${escapeHtml(c.name_ar)}</option>`
+    ).join("");
+  } catch (err) {
+    console.error("خطأ في تحميل التصنيفات:", err);
+  }
+}
+async function openCourseModal() {
   document.getElementById("courseModalTitle").textContent = "إضافة دورة";
   document.getElementById("courseForm").reset();
   document.getElementById("courseId").value = "";
-  loadCategoriesIntoSelect("courseCategory");
+  
+  // ✅ انتظر تحميل التصنيفات
+  await loadCategoriesIntoSelect("courseCategory");
+  
+  // ✅ بعدين افتح الـ Modal
   new bootstrap.Modal(document.getElementById("courseModal")).show();
 }
 
@@ -311,7 +331,22 @@ async function saveCourse(e) {
     }
   }
 }
+// ✅ حذف دورة
+async function deleteCourse(id) {
+  confirmAdmin("هل تريد حذف هذه الدورة؟ سيتم حذف كل الدروس المرتبطة بها.", async () => {
+    try {
+      const { error } = await sb.from("courses").delete().eq("id", id);
+      if (error) throw error;
 
+      showAlertModal("success", "تم حذف الدورة بنجاح");
+      renderCourses();
+      renderDashboard();
+    } catch (err) {
+      console.error("خطأ في حذف الدورة:", err);
+      showAlertModal("danger", err.message || "فشل حذف الدورة");
+    }
+  });
+}
 // ==========================================================
 // 3. Lessons
 // ==========================================================
