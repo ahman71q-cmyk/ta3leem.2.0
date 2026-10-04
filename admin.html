@@ -144,6 +144,9 @@
       <a class="nav-link" href="#" onclick="showTab('lessons', event)">
         <i class="bi bi-file-text"></i> الدروس
       </a>
+      <a class="nav-link" href="#" onclick="showTab('sections', event)">
+        <i class="bi bi-folder2-open"></i> الأقسام
+       </a>
       <a class="nav-link" href="#" onclick="showTab('presentations', event)">
         <i class="bi bi-easel"></i> العروض
       </a>
@@ -262,7 +265,38 @@
         </div>
       </div>
     </div>
+<!-- ================= Sections ================= -->
+<div id="tab-sections" class="admin-tab d-none">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">إدارة الأقسام</h2>
+    <button class="btn btn-primary" onclick="openSectionModal()">
+      <i class="bi bi-plus-circle"></i> إضافة قسم
+    </button>
+  </div>
 
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    الأقسام هي مجموعات داخل كل دورة. مثلاً: "مقدمة"، "المتقدم"، "المشاريع".
+  </div>
+
+  <div class="stat-card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>القسم</th>
+            <th>الدورة</th>
+            <th class="text-center">الترتيب</th>
+            <th class="text-center">عدد الدروس</th>
+            <th class="text-center">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="sectionsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
     <!-- ================= Lessons ================= -->
     <div id="tab-lessons" class="admin-tab d-none">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -554,6 +588,47 @@
 </div>
 
 <!-- ============================================================
+     MODAL: قسم
+============================================================ -->
+<div class="modal fade" id="sectionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="sectionModalTitle">إضافة قسم</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="sectionForm" onsubmit="saveSection(event)">
+          <input type="hidden" id="sectionId">
+          
+          <div class="mb-3">
+            <label class="form-label fw-semibold">الدورة *</label>
+            <select id="sectionCourse" class="form-select" required></select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">عنوان القسم *</label>
+            <input type="text" id="sectionTitle" class="form-control" required 
+                   placeholder="مثال: مقدمة، المتقدم، المشاريع">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">الترتيب</label>
+            <input type="number" id="sectionPosition" class="form-control" 
+                   value="1" min="1">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('sectionForm').requestSubmit()">
+          <i class="bi bi-save"></i> حفظ
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============================================================
      MODAL: درس
 ============================================================ -->
 <div class="modal fade" id="lessonModal" tabindex="-1">
@@ -567,26 +642,35 @@
         <form id="lessonForm" onsubmit="saveLesson(event)">
           <input type="hidden" id="lessonId">
           <div class="row g-3">
+
             <div class="col-md-8">
               <label class="form-label fw-semibold">عنوان الدرس *</label>
               <input type="text" id="lessonTitle" class="form-control" required>
             </div>
+
             <div class="col-md-4">
               <label class="form-label fw-semibold">المدة (دقائق)</label>
               <input type="number" id="lessonDuration" class="form-control" value="10" min="1">
             </div>
+
+            <!-- ✅ الدورة (للتصفية) -->
             <div class="col-md-6">
               <label class="form-label fw-semibold">الدورة *</label>
               <select id="lessonCourse" class="form-select" required></select>
             </div>
+
+            <!-- ✅ القسم (يتم تحديثه تلقائيًا) -->
             <div class="col-md-6">
-              <label class="form-label fw-semibold">القسم</label>
-              <select id="lessonSection" class="form-select"></select>
+              <label class="form-label fw-semibold">القسم *</label>
+              <select id="lessonSection" class="form-select" required></select>
             </div>
+
             <div class="col-12">
               <label class="form-label fw-semibold">المحتوى (HTML)</label>
-              <textarea id="lessonContent" class="form-control" rows="8" placeholder="<h3>مقدمة</h3><p>المحتوى...</p>"></textarea>
+              <textarea id="lessonContent" class="form-control" rows="8" 
+                        placeholder="<h3>مقدمة</h3><p>المحتوى...</p>"></textarea>
             </div>
+
           </div>
         </form>
       </div>
@@ -599,7 +683,6 @@
     </div>
   </div>
 </div>
-
 <!-- ============================================================
      MODAL: عرض
 ============================================================ -->

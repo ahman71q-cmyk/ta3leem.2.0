@@ -13,6 +13,7 @@ function showTab(name, e) {
 
   if (name === "dashboard") renderDashboard();
   if (name === "courses") renderCourses();
+  if (name === "sections") renderSections();
   if (name === "lessons") renderLessons();
   if (name === "presentations") renderPresentations();
   if (name === "zoom") renderZoom();
@@ -374,63 +375,374 @@ async function renderLessons() {
   `).join("");
 }
 
+
+
+// ==========================================================
+// Sections — إدارة الأقسام
+// ==========================================================
+
+// ✅ عرض كل الأقسام
+async function renderSections() {
+  const tbody = document.getElementById("sectionsTableBody");
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">
+    <div class="spinner-border spinner-border-sm text-primary"></div>
+    جاري التحميل...
+  </td></tr>`;
+
+  try {
+    // ✅ جيب الأقسام مع الدورة وعدد الدروس
+    const { data: sections, error } = await sb
+      .from("sections")
+      .select(`
+        id, title, position, course_id, created_at,
+        course:courses(id, title),
+        lessons(id)
+      `)
+      .order("course_id", { ascending: true })
+      .order("position", { ascending: true });
+
+    if (error) throw error;
+
+    if (!sections || sections.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">
+        <i class="bi bi-folder-x fs-3 d-block mb-2"></i>
+        لا توجد أقسام — اضغط "إضافة قسم" للبدء
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = sections.map((s, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${escapeHtml(s.title)}</strong></td>
+        <td>${escapeHtml(s.course?.title || "—")}</td>
+        <td class="text-center">
+          <span class="badge bg-primary-subtle text-primary">${s.position}</span>
+        </td>
+        <td class="text-center">
+          <span class="badge bg-info-subtle text-info">${s.lessons?.length || 0} درس</span>
+        </td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-outline-primary me-1" 
+                  onclick="editSection(${s.id})">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" 
+                  onclick="deleteSection(${s.id})">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `).join("");
+
+  } catch (err) {
+    console.error("خطأ في جلب الأقسام:", err);
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">
+      فشل التحميل: ${escapeHtml(err.message)}
+    </td></tr>`;
+  }
+}
+
+// ✅ فتح modal إضافة قسم
+async function openSectionModal() {
+  document.getElementById("sectionModalTitle").textContent = "إضافة قسم";
+  document.getElementById("sectionForm").reset();
+  document.getElementById("sectionId").value = "";
+  document.getElementById("sectionPosition").value = "1";
+
+  // ✅ املأ قائمة الدورات
+  const courses = await getCourses({ limit: 999 });
+  document.getElementById("sectionCourse").innerHTML = courses.map((c) =>
+    `<option value="${c.id}">${escapeHtml(c.title)}</option>`
+  ).join("");
+
+  new bootstrap.Modal(document.getElementById("sectionModal")).show();
+}
+
+// ✅ تعديل قسم
+async function editSection(id) {
+  const { data: s, error } = await sb
+    .from("sections")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !s) return showAlertModal("danger", "لم يتم العثور على القسم");
+
+  document.getElementById("sectionModalTitle").textContent = "تعديل قسم";
+  document.getElementById("sectionId").value = s.id;
+  document.getElementById("sectionTitle").value = s.title;
+  document.getElementById("sectionPosition").value = s.position || 1;
+
+  // ✅ املأ الدورات واختار الصح
+  const courses = await getCourses({ limit: 999 });
+  document.getElementById("sectionCourse").innerHTML = courses.map((c) =>
+    `<option value="${c.id}" ${c.id === s.course_id ? "selected" : ""}>${escapeHtml(c.title)}</option>`
+  ).join("");
+
+  new bootstrap.Modal(document.getElementById("sectionModal")).show();
+}
+
+// ✅ حفظ قسم (إضافة أو تعديل)
+async function saveSection(e) {
+  e.preventDefault();
+
+  const id = document.getElementById("sectionId").value;
+  const courseId = Number(document.getElementById("sectionCourse").value);
+  const title = document.getElementById("sectionTitle").value.trim();
+  const position = Number(document.getElementById("sectionPosition").value) || 1;
+
+  if (!title) return showAlertModal("warning", "اكتب عنوان القسم");
+  if (!courseId) return showAlertModal("warning", "اختر الدورة");
+
+  const data = {
+    course_id: courseId,
+    title,
+    position,
+  };
+
+  try {
+    if (id) {
+      // تعديل
+      const { error } = await sb.from("sections").update(data).eq("id", Number(id));
+      if (error) throw error;
+      showAlertModal("success", "تم تحديث القسم بنجاح");
+    } else {
+      // إضافة
+      const { error } = await sb.from("sections").insert(data);
+      if (error) throw error;
+      showAlertModal("success", "تم إضافة القسم بنجاح");
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById("sectionModal")).hide();
+    renderSections();
+
+  } catch (err) {
+    console.error("خطأ في حفظ القسم:", err);
+    showAlertModal("danger", err.message || "فشل حفظ القسم");
+  }
+}
+
+// ✅ حذف قسم
+async function deleteSection(id) {
+  // ✅ تحقق لو فيه دروس مرتبطة
+  const { data: lessons, error: checkErr } = await sb
+    .from("lessons")
+    .select("id")
+    .eq("section_id", id);
+
+  if (checkErr) return showAlertModal("danger", checkErr.message);
+
+  const hasLessons = lessons && lessons.length > 0;
+  const message = hasLessons
+    ? `⚠️ هذا القسم فيه ${lessons.length} درس. سيتم حذفهم كلهم معه. متأكد؟`
+    : "هل تريد حذف هذا القسم؟";
+
+  confirmAdmin(message, async () => {
+    try {
+      const { error } = await sb.from("sections").delete().eq("id", id);
+      if (error) throw error;
+
+      showAlertModal("success", "تم حذف القسم بنجاح");
+      renderSections();
+    } catch (err) {
+      showAlertModal("danger", err.message);
+    }
+  });
+}
+
+// ==========================================================
+// 3. Lessons — فتح Modal إضافة درس
+// ==========================================================
 async function openLessonModal() {
   document.getElementById("lessonModalTitle").textContent = "إضافة درس";
   document.getElementById("lessonForm").reset();
   document.getElementById("lessonId").value = "";
-  await loadCoursesIntoLessonSelect();
+
+  // ✅ تحميل الأقسام في الحقلين
+  await loadCoursesAndSectionsIntoSelect();
+
   new bootstrap.Modal(document.getElementById("lessonModal")).show();
 }
 
+// ==========================================================
+// تحميل الأقسام في Selectين (الدورة + القسم)
+// ==========================================================
+async function loadCoursesAndSectionsIntoSelect(selectedSectionId = null) {
+  try {
+    // ✅ جيب كل الأقسام مع الدورات
+    const { data: sections, error } = await sb
+      .from("sections")
+      .select(`id, title, position, course_id, course:courses(id, title)`)
+      .order("course_id", { ascending: true })
+      .order("position", { ascending: true });
+
+    if (error) throw error;
+
+    // ✅ جيب كل الدورات (للاختيار بدون قسم)
+    const courses = await getCourses({ limit: 999 });
+
+    // ==========================================================
+    // الحقل 1: الدورة
+    // ==========================================================
+    const courseSelect = document.getElementById("lessonCourse");
+    if (courseSelect) {
+      courseSelect.innerHTML = courses.map((c) =>
+        `<option value="${c.id}">${escapeHtml(c.title)}</option>`
+      ).join("");
+
+      // لما تغير الدورة → حدث الأقسام
+      if (!courseSelect.dataset.bound) {
+        courseSelect.dataset.bound = "true";
+        courseSelect.addEventListener("change", () => {
+          updateSectionsDropdown(courseSelect.value, sections);
+        });
+      }
+
+      // ✅ حدّث الأقسام فورًا
+      updateSectionsDropdown(courseSelect.value, sections);
+    }
+
+    // ==========================================================
+    // الحقل 2: القسم
+    // ==========================================================
+    const sectionSelect = document.getElementById("lessonSection");
+    if (sectionSelect) {
+      sectionSelect.dataset.allSections = JSON.stringify(sections || []);
+    }
+
+  } catch (err) {
+    console.error("خطأ في تحميل الأقسام:", err);
+  }
+}
+
+// ✅ تحديث قائمة الأقسام بناءً على الدورة المختارة
+function updateSectionsDropdown(courseId, allSections) {
+  const sectionSelect = document.getElementById("lessonSection");
+  if (!sectionSelect) return;
+
+  // ✅ فلتر الأقسام بالدورة
+  const filtered = (allSections || []).filter(
+    (s) => Number(s.course_id) === Number(courseId)
+  );
+
+  if (filtered.length === 0) {
+    sectionSelect.innerHTML = `<option value="">— لا يوجد أقسام لهذه الدورة —</option>`;
+    sectionSelect.disabled = true;
+    return;
+  }
+
+  sectionSelect.disabled = false;
+  sectionSelect.innerHTML = filtered
+    .map((s) => `<option value="${s.id}">${escapeHtml(s.title)}</option>`)
+    .join("");
+}
+// ==========================================================
+// تعديل درس
+// ==========================================================
 async function editLesson(id) {
-  const { data: l } = await sb.from("lessons").select("*").eq("id", id).single();
-  if (!l) return;
+  const { data: l, error } = await sb
+    .from("lessons")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !l) return;
+
   document.getElementById("lessonModalTitle").textContent = "تعديل درس";
   document.getElementById("lessonId").value = l.id;
   document.getElementById("lessonTitle").value = l.title;
   document.getElementById("lessonDuration").value = l.duration_min || 10;
   document.getElementById("lessonContent").value = l.content || "";
-  await loadCoursesIntoLessonSelect(l.section_id);
+
+  // ✅ تحميل الأقسام
+  await loadCoursesAndSectionsIntoSelect();
+
+  // ✅ جيب بيانات القسم الحالي
+  const { data: section } = await sb
+    .from("sections")
+    .select("course_id")
+    .eq("id", l.section_id)
+    .single();
+
+  // ✅ اختار الدورة الصح
+  const courseSelect = document.getElementById("lessonCourse");
+  if (courseSelect && section) {
+    courseSelect.value = section.course_id;
+
+    // ✅ حدّث الأقسام
+    const allSections = JSON.parse(
+      document.getElementById("lessonSection").dataset.allSections || "[]"
+    );
+    updateSectionsDropdown(section.course_id, allSections);
+
+    // ✅ اختار القسم الصح
+    setTimeout(() => {
+      document.getElementById("lessonSection").value = l.section_id;
+    }, 50);
+  }
+
   new bootstrap.Modal(document.getElementById("lessonModal")).show();
 }
 
-async function loadCoursesIntoLessonSelect(selectedSectionId = null) {
-  const { data: sections } = await sb
-    .from("sections")
-    .select(`id, title, course:courses(id, title)`)
-    .order("position");
-
-  const select = document.getElementById("lessonCourse");
-  select.innerHTML = (sections || []).map((s) =>
-    `<option value="${s.id}" ${s.id === selectedSectionId ? "selected" : ""}>${escapeHtml(s.course?.title || "—")} → ${escapeHtml(s.title)}</option>`
-  ).join("");
-}
-
+// ==========================================================
+// حفظ درس
+// ==========================================================
 async function saveLesson(e) {
   e.preventDefault();
+
   const id = document.getElementById("lessonId").value;
-  const sectionId = Number(document.getElementById("lessonCourse").value);
+  const sectionId = Number(document.getElementById("lessonSection").value);
+  const title = document.getElementById("lessonTitle").value.trim();
+  const duration = Number(document.getElementById("lessonDuration").value) || 10;
+  const content = document.getElementById("lessonContent").value;
+
+  // ✅ تحقق
+  if (!title) return showAlertModal("warning", "اكتب عنوان الدرس");
+  if (!sectionId) return showAlertModal("warning", "اختر القسم — لو مش موجود، أضف قسم أولاً");
+  if (!content.trim()) return showAlertModal("warning", "اكتب محتوى الدرس");
 
   const data = {
     section_id: sectionId,
-    title: document.getElementById("lessonTitle").value.trim(),
-    duration_min: Number(document.getElementById("lessonDuration").value) || 10,
-    content: document.getElementById("lessonContent").value,
+    title,
+    duration_min: duration,
+    content,
     type: "article",
   };
 
-  if (id) {
-    const { error } = await sb.from("lessons").update(data).eq("id", Number(id));
-    if (error) return showAlertModal("danger", error.message);
-  } else {
-    const { error } = await sb.from("lessons").insert(data);
-    if (error) return showAlertModal("danger", error.message);
+  const submitBtn = document.querySelector('#lessonModal .modal-footer button.btn-primary');
+  const originalBtnHTML = submitBtn ? submitBtn.innerHTML : "";
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> جاري الحفظ...`;
   }
 
-  bootstrap.Modal.getInstance(document.getElementById("lessonModal")).hide();
-  showAlertModal("success", "تم حفظ الدرس بنجاح");
-  renderLessons();
-  renderDashboard();
+  try {
+    if (id) {
+      const { error } = await sb.from("lessons").update(data).eq("id", Number(id));
+      if (error) throw error;
+    } else {
+      const { error } = await sb.from("lessons").insert(data);
+      if (error) throw error;
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById("lessonModal")).hide();
+    showAlertModal("success", id ? "تم تحديث الدرس بنجاح" : "تم إضافة الدرس بنجاح");
+    renderLessons();
+    renderDashboard();
+
+  } catch (err) {
+    console.error("خطأ في حفظ الدرس:", err);
+    showAlertModal("danger", err.message || "فشل حفظ الدرس");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHTML;
+    }
+  }
 }
 
 async function deleteLesson(id) {
